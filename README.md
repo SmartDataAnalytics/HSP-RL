@@ -1,2 +1,1 @@
-# HSP-RL
-HSP Project - ML - Reinforcement Learning
+- requires package ffmpeg (https://www.ffmpeg.org/)
