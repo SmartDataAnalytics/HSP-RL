@@ -27,4 +27,5 @@ wheels/
 
 .idea/
 
-temp/
+temp.txt
+brute.log

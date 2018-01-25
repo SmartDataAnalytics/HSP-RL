@@ -17,6 +17,14 @@ RISK_STATUS = 2
 BURNING_COLOR = "#FF0000"
 BURNING_STATUS = 3
 
+import logging
+logger = logging.getLogger('hsp-ff-brute')
+hdlr = logging.FileHandler('brute.log')
+formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+hdlr.setFormatter(formatter)
+logger.addHandler(hdlr)
+logger.setLevel(logging.DEBUG)
+
 def get_temp_folder(exp_id):
     try:
         path = os.path.realpath(__file__)
@@ -54,7 +62,7 @@ def set_style(g):
 
 def to_protect(g, q_risk, q_protected, tot):
     if q_risk.empty() is True:
-        raise 'this should not occur'
+        raise Exception('this should not occur')
     for i in range(tot):
         i = q_risk.get()
         g.vs[i]["color"] = PROTECTED_COLOR
@@ -63,31 +71,39 @@ def to_protect(g, q_risk, q_protected, tot):
 
 def to_burn(g, q_risk, q_burning, tot):
     if q_risk.empty() is True:
-        raise 'this should not occur'
+        raise Exception('this should not occur')
     for i in range(tot):
         i = q_risk.get()
         g.vs[i]["color"] = BURNING_COLOR
         g.vs[i]["status"] = BURNING_STATUS
         q_burning.put(i)
 
-def print_report(i, b, r, p, bu, tot_untouched):
-    print('budget = ', bu)
-    print('tot. iteration = ', str(i))
-    print('tot. untouched = ', str(tot_untouched))
-    print('tot. in risk = ', len(r.queue))
-    print('tot. burning = ', len(b.queue))
-    print('tot. protected = ', len(p.queue))
-    print('---------------------')
+def print_report(n, g, i, b, r, p, bu, tot_untouched):
+    logger.info('==== Final Report ====')
+    logger.info('grid (NxN) = ' + str(n))
+    logger.info('budget = ' + str(bu))
+    logger.info('tot. vertices = ' + str(g))
+    logger.info('tot. iteration = ' + str(i))
+    logger.info('tot. untouched = ' + str(tot_untouched))
+    logger.info('tot. in risk = ' + str(len(r.queue)))
+    logger.info('tot. burning = ' + str(len(b.queue)))
+    logger.info('tot. protected = ' + str(len(p.queue)))
 
-def print_state(i, b, r, p, bu):
-    print('iteration = ', str(i))
-    print('budget = ', str(bu))
-    print('burning = ', [z for z in b.queue])
-    print('in risk = ', [z for z in r.queue])
-    print('protected = ', [z for z in p.queue])
-    print('---------------------')
+def print_state(i, b, r, p, bl, bc, bi):
+    logger.debug('---------------------')
+    logger.debug('iteration = ' + str(i))
+    logger.debug('budget left = {0:.2f}'.format(bl))
+    logger.debug('budget current tot = {0:.2f}'.format(bc))
+    logger.debug('budget current = {0:.2f}'.format(bi))
+    logger.debug('burning = ' + str(len(b.queue)))
+    logger.debug('in risk = ' + str(len(r.queue)))
+    logger.debug('protected = ' + str(len(p.queue)))
+    #print('burning = ', [z for z in b.queue])
+    #print('in risk = ', [z for z in r.queue])
+    #print('protected = ', [z for z in p.queue])
 
-def simulate(g, budget, burns, B_cells, expid, folder_sim):
+
+def simulate(n, g, budget, burns, B_cells, expid, folder_sim):
     # set style
     visual_style = set_style(g)
     q_burning = queue.Queue()
@@ -111,20 +127,20 @@ def simulate(g, budget, burns, B_cells, expid, folder_sim):
     budget_current = budget + budget_left
     budget_i = math.floor(budget_current)
 
-    print_state(0, q_burning, q_risk, q_protected, budget_i)
+    print_state(0, q_burning, q_risk, q_protected, budget_left, budget_current, budget_i)
 
     # plot state 0
     plot(g, **visual_style, target=folder_sim  + 'out0.png')
 
     if q_risk.empty() is True:
-        raise 'this should not occur'
+        raise Exception('this should not occur')
     for i in range(budget_i):
         i = q_risk.get()
         g.vs[i]["color"] = PROTECTED_COLOR
         g.vs[i]["status"] = PROTECTED_STATUS
         q_protected.put(i)
 
-    print_state(1, q_burning, q_risk, q_protected, budget_i)
+    print_state(1, q_burning, q_risk, q_protected, budget_left, budget_current, budget_i)
 
     # plot state 1
     plot(g, **visual_style, target=folder_sim + 'out1.png')
@@ -154,7 +170,7 @@ def simulate(g, budget, burns, B_cells, expid, folder_sim):
                 g.vs[irisk]["status"] = PROTECTED_STATUS
                 q_protected.put(irisk)
 
-        print_state(iter, q_burning, q_risk, q_protected, budget_i)
+        print_state(iter, q_burning, q_risk, q_protected, budget_left, budget_current, budget_i)
         plot(g, **visual_style, target=folder_sim + 'out' + str(iter) + '.png')
 
         iter +=1
@@ -163,19 +179,19 @@ def simulate(g, budget, burns, B_cells, expid, folder_sim):
         budget_left = budget_current - budget_i
 
     tot_untouched = len([v for v in g.vs["status"] if (g.vs[v]["status"] == UNTOUCHED_STATUS)])
-    print_report(iter, q_burning, q_risk, q_protected, budget, tot_untouched)
+    print_report(n, len(g.vs), iter, q_burning, q_risk, q_protected, budget, tot_untouched)
 
 def main(argv):
-    v = 20
+    v = 4
     g = Graph.Lattice([v,v], nei=1, directed=False, mutual=True, circular=False)
     g.layout_grid(0, 0, dim=2)
-    budget = 1.8
+    budget = 1.6
     burns = 2
     B_cells = [3,4]
-    speed = 10
+    speed = 2
     exp_id = get_sim_id(v, budget, burns, len(B_cells))
     folder_sim = get_temp_folder(exp_id) + '/'
-    simulate(g, budget, burns, B_cells, exp_id, folder_sim)
+    simulate(v, g, budget, burns, B_cells, exp_id, folder_sim)
     save_simulation(exp_id, folder_sim, speed)
 
 if __name__ == "__main__":
