@@ -20,7 +20,7 @@ BURNING_STATUS = 3
 def get_temp_folder(exp_id):
     try:
         path = os.path.realpath(__file__)
-        dirPath = os.path.dirname(path) + '/temp/' + exp_id
+        dirPath = os.path.dirname(path) + '/output/' + exp_id
         if not os.path.exists(dirPath):
             os.makedirs(dirPath)
         return dirPath
