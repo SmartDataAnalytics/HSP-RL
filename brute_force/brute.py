@@ -10,12 +10,12 @@ import queue
 # style parameters
 UNTOUCHED_COLOR = "#A9A9A9"
 UNTOUCHED_STATUS = 0
+PROTECTED_COLOR = "#00FFFF"
+PROTECTED_STATUS = 1
 RISK_COLOR = "#FFFF00"
-RISK_STATUS = 1
+RISK_STATUS = 2
 BURNING_COLOR = "#FF0000"
-BURNING_STATUS = 2
-PROTECTED_COLOR = "#0000FF"
-PROTECTED_STATUS = 3
+BURNING_STATUS = 3
 
 def get_temp_folder():
     try:
@@ -30,15 +30,16 @@ def get_temp_folder():
 TEMP_PATH_SIMULATION = get_temp_folder()
 
 def save_simulation():
-    os.system("ffmpeg -r 1 -i " + TEMP_PATH_SIMULATION + "/out%d.png -vcodec mpeg4 -y " +
-              TEMP_PATH_SIMULATION + "/ff_simulation.mp4")
+    cmd = "ffmpeg -r 1 -i " + TEMP_PATH_SIMULATION + "/out%d.png -vcodec mpeg4 -y " + TEMP_PATH_SIMULATION + "/ff_simulation.mp4"
+    print(cmd)
+    os.system(cmd)
 
 def set_style(g):
     # set graph style
     g.es["width"] = 2
-    g.vs["color"] = UNTOUCHED_COLOR
-    g.vs["size"] = 30
-    g.vs["label_size"] = 15
+    g.vs["color"] = [UNTOUCHED_COLOR for v in g.vs]
+    g.vs["size"] = 25
+    g.vs["label_size"] = 12
     g.vs["label"] = [v.index for v in g.vs]
     g.vs["status"] = [UNTOUCHED_STATUS for v in g.vs]
     layout = g.layout_lgl()
@@ -67,7 +68,13 @@ def to_burn(g, q_risk, q_burning, tot):
         g.vs[i]["status"] = BURNING_STATUS
         q_burning.put(i)
 
-
+def print_state(i, b, r, p, bu):
+    print('iteration = ', str(i))
+    print('budget = ', str(bu))
+    print('burning = ', [z for z in b.queue])
+    print('risk = ', [z for z in r.queue])
+    print('protected = ', [z for z in p.queue])
+    print('---------------------')
 
 def simulate(g, budget, burns, B_cells):
     # set style
@@ -79,20 +86,25 @@ def simulate(g, budget, burns, B_cells):
 
     # state 0
     for v in B_cells:
-        g.vs[v]["color"] = BURNING_COLOR
         g.vs[v]["status"] = BURNING_STATUS
+        g.vs[v]["color"] = BURNING_COLOR
         q_burning.put(v)
-        for v_risk in g.neighbors(v):
-            q_risk.put(v_risk)
+
+    for vb in q_burning.queue:
+        for v_risk in g.neighbors(vb):
+            if g.vs[v_risk]["status"] == UNTOUCHED_STATUS:
+                g.vs[v_risk]["status"] = RISK_STATUS
+                g.vs[v_risk]["color"] = RISK_COLOR
+                q_risk.put(v_risk)
 
     budget_left = 0
     budget_current = budget + budget_left
     budget_i = math.floor(budget_current)
 
+    print_state(0, q_burning, q_risk, q_protected, budget_i)
+
     # plot state 0
     plot(g, **visual_style, target=TEMP_PATH_SIMULATION + '/out0.png')
-    #plot(g, target=TEMP_PATH_SIMULATION + '/out0.png')
-
 
     if q_risk.empty() is True:
         raise 'this should not occur'
@@ -102,17 +114,17 @@ def simulate(g, budget, burns, B_cells):
         g.vs[i]["status"] = PROTECTED_STATUS
         q_protected.put(i)
 
+    print_state(1, q_burning, q_risk, q_protected, budget_i)
+
     # plot state 1
     plot(g, **visual_style, target=TEMP_PATH_SIMULATION + '/out1.png')
-    exit(0)
-    budget_left = budget_current - budget_i
 
+    budget_left = budget_current - budget_i
     iter = 2
 
     # update: burn, update risks and protect
 
     while not q_risk.empty():
-
         # burns and update risks
         for i in range(burns):
             irisk = q_risk.get()
@@ -131,17 +143,13 @@ def simulate(g, budget, burns, B_cells):
             g.vs[irisk]["status"] = PROTECTED_STATUS
             q_protected.put(irisk)
 
-        #
+        print_state(iter, q_burning, q_risk, q_protected, budget_i)
         plot(g, **visual_style, target=TEMP_PATH_SIMULATION + '/out' + str(iter) + '.png')
-        iter +=1
 
-        # update budget
+        iter +=1
         budget_current = budget + budget_left
         budget_i = math.floor(budget_current)
         budget_left = budget_current - budget_i
-
-
-
 
 def main(argv):
     # simulation parameters
