@@ -17,20 +17,22 @@ RISK_STATUS = 2
 BURNING_COLOR = "#FF0000"
 BURNING_STATUS = 3
 
-def get_temp_folder():
+def get_temp_folder(exp_id):
     try:
         path = os.path.realpath(__file__)
-        dirPath = os.path.dirname(path) + '/temp'
+        dirPath = os.path.dirname(path) + '/temp/' + exp_id
         if not os.path.exists(dirPath):
             os.makedirs(dirPath)
         return dirPath
     except Exception as e:
         print(e)
 
-TEMP_PATH_SIMULATION = get_temp_folder()
+def get_sim_id(a,b,c,d):
+    return '_'.join([str(a), str(b), str(c), str(d)])
 
-def save_simulation():
-    cmd = "ffmpeg -r 1 -i " + TEMP_PATH_SIMULATION + "/out%d.png -vcodec mpeg4 -y " + TEMP_PATH_SIMULATION + "/ff_simulation.mp4"
+def save_simulation(id, folder_sim, speed=1):
+    file = id + '_sim.mp4'
+    cmd = "ffmpeg -r " + str(speed) + " -i " + folder_sim + "out%d.png -pix_fmt yuv420p -vcodec libx264 -y " + folder_sim + "/" + file
     print(cmd)
     os.system(cmd)
 
@@ -45,8 +47,8 @@ def set_style(g):
     layout = g.layout_lgl()
     visual_style = {}
     visual_style["layout"] = layout
-    #visual_style["margin"] = [20, 20, 20, 20]
-    #visual_style["bbox"] = (1024, 900)
+    visual_style["margin"] = [20, 20, 20, 20]
+    visual_style["bbox"] = (1024, 900)
     #visual_style["keep_aspect_ratio"] = True
     return visual_style
 
@@ -68,18 +70,26 @@ def to_burn(g, q_risk, q_burning, tot):
         g.vs[i]["status"] = BURNING_STATUS
         q_burning.put(i)
 
+def print_report(i, b, r, p, bu, tot_untouched):
+    print('budget = ', bu)
+    print('tot. iteration = ', str(i))
+    print('tot. untouched = ', str(tot_untouched))
+    print('tot. in risk = ', len(r.queue))
+    print('tot. burning = ', len(b.queue))
+    print('tot. protected = ', len(p.queue))
+    print('---------------------')
+
 def print_state(i, b, r, p, bu):
     print('iteration = ', str(i))
     print('budget = ', str(bu))
     print('burning = ', [z for z in b.queue])
-    print('risk = ', [z for z in r.queue])
+    print('in risk = ', [z for z in r.queue])
     print('protected = ', [z for z in p.queue])
     print('---------------------')
 
-def simulate(g, budget, burns, B_cells):
+def simulate(g, budget, burns, B_cells, expid, folder_sim):
     # set style
     visual_style = set_style(g)
-
     q_burning = queue.Queue()
     q_risk = queue.Queue()
     q_protected = queue.Queue()
@@ -104,7 +114,7 @@ def simulate(g, budget, burns, B_cells):
     print_state(0, q_burning, q_risk, q_protected, budget_i)
 
     # plot state 0
-    plot(g, **visual_style, target=TEMP_PATH_SIMULATION + '/out0.png')
+    plot(g, **visual_style, target=folder_sim  + 'out0.png')
 
     if q_risk.empty() is True:
         raise 'this should not occur'
@@ -117,7 +127,7 @@ def simulate(g, budget, burns, B_cells):
     print_state(1, q_burning, q_risk, q_protected, budget_i)
 
     # plot state 1
-    plot(g, **visual_style, target=TEMP_PATH_SIMULATION + '/out1.png')
+    plot(g, **visual_style, target=folder_sim + 'out1.png')
 
     budget_left = budget_current - budget_i
     iter = 2
@@ -145,28 +155,28 @@ def simulate(g, budget, burns, B_cells):
                 q_protected.put(irisk)
 
         print_state(iter, q_burning, q_risk, q_protected, budget_i)
-        plot(g, **visual_style, target=TEMP_PATH_SIMULATION + '/out' + str(iter) + '.png')
+        plot(g, **visual_style, target=folder_sim + 'out' + str(iter) + '.png')
 
         iter +=1
         budget_current = budget + budget_left
         budget_i = math.floor(budget_current)
         budget_left = budget_current - budget_i
 
+    tot_untouched = len([v for v in g.vs["status"] if (g.vs[v]["status"] == UNTOUCHED_STATUS)])
+    print_report(iter, q_burning, q_risk, q_protected, budget, tot_untouched)
+
 def main(argv):
-    # simulation parameters
-    v = 4
+    v = 20
     g = Graph.Lattice([v,v], nei=1, directed=False, mutual=True, circular=False)
     g.layout_grid(0, 0, dim=2)
-
-
-    budget = 1.6
+    budget = 1.8
     burns = 2
-    B_cells = [0, 1]
-
-    # start
-    simulate(g, budget, burns, B_cells)
-    # export simulation
-    save_simulation()
+    B_cells = [3,4]
+    speed = 10
+    exp_id = get_sim_id(v, budget, burns, len(B_cells))
+    folder_sim = get_temp_folder(exp_id) + '/'
+    simulate(g, budget, burns, B_cells, exp_id, folder_sim)
+    save_simulation(exp_id, folder_sim, speed)
 
 if __name__ == "__main__":
     main(sys.argv[1:])
