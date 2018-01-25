@@ -126,7 +126,7 @@ def simulate(g, budget, burns, B_cells):
 
     while not q_risk.empty():
         # burns and update risks
-        for i in range(burns):
+        for i in range(burns - 1):
             irisk = q_risk.get()
             g.vs[irisk]["color"] = BURNING_COLOR
             g.vs[irisk]["status"] = BURNING_STATUS
@@ -137,11 +137,12 @@ def simulate(g, budget, burns, B_cells):
                     g.vs[i_new_risks]["status"] = RISK_STATUS
                     q_risk.put(i_new_risks)
         # protect
-        for i in range(budget_i):
-            irisk = q_risk.get()
-            g.vs[irisk]["color"] = PROTECTED_COLOR
-            g.vs[irisk]["status"] = PROTECTED_STATUS
-            q_protected.put(irisk)
+        for i in range(budget_i - 1):
+            if not q_risk.empty():
+                irisk = q_risk.get()
+                g.vs[irisk]["color"] = PROTECTED_COLOR
+                g.vs[irisk]["status"] = PROTECTED_STATUS
+                q_protected.put(irisk)
 
         print_state(iter, q_burning, q_risk, q_protected, budget_i)
         plot(g, **visual_style, target=TEMP_PATH_SIMULATION + '/out' + str(iter) + '.png')
