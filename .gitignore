@@ -26,4 +26,5 @@ wheels/
 *.egg
 
 .idea/
+
 temp/
