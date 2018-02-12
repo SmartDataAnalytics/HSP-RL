@@ -6,6 +6,9 @@ from igraph import *
 import os
 os.path.basename(os.path.dirname(os.path.realpath(__file__)))
 import queue
+import logging
+import itertools
+
 
 # style parameters
 UNTOUCHED_COLOR = "#A9A9A9"
@@ -17,13 +20,22 @@ RISK_STATUS = 2
 BURNING_COLOR = "#FF0000"
 BURNING_STATUS = 3
 
-import logging
 logger = logging.getLogger('hsp-ff-brute')
-hdlr = logging.FileHandler('brute.log')
-formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-hdlr.setFormatter(formatter)
-logger.addHandler(hdlr)
-logger.setLevel(logging.DEBUG)
+
+def gen_list(graph, result, n_set, propagation_value):
+    if len(n_set) < 2:
+        if len(n_set) == 0:
+            print(result)
+        else:
+            print(result+[result[len(result)-1]+list(n_set)])
+    else:
+        perm = list(itertools.permutations(n_set, propagation_value))
+        for i in perm:
+            result1 = result+[result[len(result)-1]+list(i)]
+            n_set1 = set()
+            for j in i:
+                n_set1 = n_set1.union(n_set.difference(i)).union(set(graph.get(str(j), [])))
+            gen_list(graph, result1, n_set1)
 
 def get_temp_folder(exp_id):
     try:
@@ -89,21 +101,22 @@ def print_report(n, g, i, b, r, p, bu, tot_untouched):
     logger.info('tot. burning = ' + str(len(b.queue)))
     logger.info('tot. protected = ' + str(len(p.queue)))
 
-def print_state(i, b, r, p, bl, bc, bi):
+def print_state(i, b, r, p, b_bef, bud_tot, but_tot_floor, b_aft):
     logger.debug('---------------------')
     logger.debug('iteration = ' + str(i))
-    logger.debug('budget left = {0:.2f}'.format(bl))
-    logger.debug('budget current tot = {0:.2f}'.format(bc))
-    logger.debug('budget current = {0:.2f}'.format(bi))
+    logger.debug('budget left (i-1) = {0:.2f}'.format(b_bef))
+    logger.debug('budget current tot = {0:.2f}'.format(bud_tot))
+    logger.debug('budget current (round) = {0:.2f}'.format(but_tot_floor))
+    logger.debug('budget left (i+1) = {0:.2f}'.format(b_aft))
     logger.debug('burning = ' + str(len(b.queue)))
     logger.debug('in risk = ' + str(len(r.queue)))
     logger.debug('protected = ' + str(len(p.queue)))
-    #print('burning = ', [z for z in b.queue])
-    #print('in risk = ', [z for z in r.queue])
-    #print('protected = ', [z for z in p.queue])
+    logger.debug('burning = ' + str([z for z in b.queue]))
+    logger.debug('in risk = ' + str([z for z in r.queue]))
+    logger.debug('protected = ' + str([z for z in p.queue]))
 
 
-def simulate(n, g, budget, burns, B_cells, expid, folder_sim):
+def simulate(n, g, budget, burns, B_cells, folder_sim):
     # set style
     visual_style = set_style(g)
     q_burning = queue.Queue()
@@ -123,75 +136,105 @@ def simulate(n, g, budget, burns, B_cells, expid, folder_sim):
                 g.vs[v_risk]["color"] = RISK_COLOR
                 q_risk.put(v_risk)
 
-    budget_left = 0
-    budget_current = budget + budget_left
-    budget_i = math.floor(budget_current)
+    budget_bef = 0.0
+    budget_i_tot = budget + budget_bef
+    budget_i_floor = math.floor(budget_i_tot)
+    budget_after = budget_i_tot - budget_i_floor
 
-    print_state(0, q_burning, q_risk, q_protected, budget_left, budget_current, budget_i)
+    print_state(0, q_burning, q_risk, q_protected, budget_bef, budget_i_tot, budget_i_floor, budget_after)
 
     # plot state 0
     plot(g, **visual_style, target=folder_sim  + 'out0.png')
 
     if q_risk.empty() is True:
         raise Exception('this should not occur')
-    for i in range(budget_i):
+    for i in range(budget_i_floor):
         i = q_risk.get()
         g.vs[i]["color"] = PROTECTED_COLOR
         g.vs[i]["status"] = PROTECTED_STATUS
         q_protected.put(i)
 
-    print_state(1, q_burning, q_risk, q_protected, budget_left, budget_current, budget_i)
+    print_state(1, q_burning, q_risk, q_protected, budget_bef, budget_i_tot, budget_i_floor, budget_after)
 
+    iter = 1
     # plot state 1
     plot(g, **visual_style, target=folder_sim + 'out1.png')
 
-    budget_left = budget_current - budget_i
-    iter = 2
-
-    # update: burn, update risks and protect
-
     while not q_risk.empty():
         # burns and update risks
-        for i in range(burns - 1):
+        iter += 1
+
+        budget_bef = budget_after
+        budget_i_tot = budget + budget_bef
+        budget_i_floor = math.floor(budget_i_tot)
+        budget_after = budget_i_tot - budget_i_floor
+
+        if burns == -1:
+            r = len(q_risk.queue)
+        else:
+            r = burns - 1
+
+        temp_new_risk = queue.Queue()
+        for i in range(r):
             irisk = q_risk.get()
             g.vs[irisk]["color"] = BURNING_COLOR
             g.vs[irisk]["status"] = BURNING_STATUS
             q_burning.put(irisk)
-            for i_new_risks in g.neighbors(irisk):
+            temp_new_risk.put(irisk)
+
+        while not temp_new_risk.empty():
+            for i_new_risks in g.neighbors(temp_new_risk.get()):
                 if g.vs[i_new_risks]["status"] == UNTOUCHED_STATUS:
                     g.vs[i_new_risks]["color"] = RISK_COLOR
                     g.vs[i_new_risks]["status"] = RISK_STATUS
                     q_risk.put(i_new_risks)
         # protect
-        for i in range(budget_i - 1):
+        for i in range(budget_i_floor):
             if not q_risk.empty():
                 irisk = q_risk.get()
                 g.vs[irisk]["color"] = PROTECTED_COLOR
                 g.vs[irisk]["status"] = PROTECTED_STATUS
                 q_protected.put(irisk)
 
-        print_state(iter, q_burning, q_risk, q_protected, budget_left, budget_current, budget_i)
+        print_state(iter, q_burning, q_risk, q_protected, budget_bef, budget_i_tot, budget_i_floor, budget_after)
         plot(g, **visual_style, target=folder_sim + 'out' + str(iter) + '.png')
 
-        iter +=1
-        budget_current = budget + budget_left
-        budget_i = math.floor(budget_current)
-        budget_left = budget_current - budget_i
 
-    tot_untouched = len([v for v in g.vs["status"] if (g.vs[v]["status"] == UNTOUCHED_STATUS)])
+    tot_untouched = len(list(v for v in g.vs["status"] if (v == UNTOUCHED_STATUS)))
     print_report(n, len(g.vs), iter, q_burning, q_risk, q_protected, budget, tot_untouched)
 
+def brute_get_routes():
+    graph = {
+        '1': ['2', '3', '4', '6'],
+        '2': ['5'],
+    }
+
+    result = list()
+    result.append([1])
+    n_set = set(graph.get(str(1), []))
+    gen_list(graph, result, n_set)
+
 def main(argv):
+
     v = 4
     g = Graph.Lattice([v,v], nei=1, directed=False, mutual=True, circular=False)
     g.layout_grid(0, 0, dim=2)
-    budget = 1.6
-    burns = 2
+    budget = 1.4
+    # if burns = -1, then burns all neighbors of v_i at each iteration i, otherwise burns b neighbors
+    burns = -1
     B_cells = [3,4]
     speed = 2
     exp_id = get_sim_id(v, budget, burns, len(B_cells))
     folder_sim = get_temp_folder(exp_id) + '/'
-    simulate(v, g, budget, burns, B_cells, exp_id, folder_sim)
+
+
+    hdlr = logging.FileHandler(folder_sim + 'brute.log', mode='w')
+    formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+    hdlr.setFormatter(formatter)
+    logger.addHandler(hdlr)
+    logger.setLevel(logging.DEBUG)
+
+    simulate(v, g, budget, burns, B_cells, folder_sim)
     save_simulation(exp_id, folder_sim, speed)
 
 if __name__ == "__main__":
