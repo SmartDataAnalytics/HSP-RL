@@ -22,20 +22,21 @@ BURNING_STATUS = 3
 
 logger = logging.getLogger('hsp-ff-brute')
 
-def gen_list(graph, result, n_set, propagation_value):
-    if len(n_set) < 2:
-        if len(n_set) == 0:
-            print(result)
+def gen_list(graph, burning, neigb, propagation_value, out=[]):
+    if len(neigb) < 2:
+        if len(neigb) == 0:
+            print(burning)
         else:
-            print(result+[result[len(result)-1]+list(n_set)])
+            out.append(burning[len(burning)-1]+list(neigb))
+            print(burning+[burning[len(burning)-1]+list(neigb)])
     else:
-        perm = list(itertools.permutations(n_set, propagation_value))
+        perm = list(itertools.combinations(neigb, propagation_value))
         for i in perm:
-            result1 = result+[result[len(result)-1]+list(i)]
-            n_set1 = set()
+            burning1 = burning+[burning[len(burning)-1]+list(i)]
+            neigb1 = set()
             for j in i:
-                n_set1 = n_set1.union(n_set.difference(i)).union(set(graph.get(str(j), [])))
-            gen_list(graph, result1, n_set1)
+                neigb1 = neigb1.union(neigb.difference(i)).union(set(graph.get(str(j), [])))
+            gen_list(graph, burning1, neigb1, propagation_value, out)
 
 def get_temp_folder(exp_id):
     try:
@@ -114,7 +115,6 @@ def print_state(i, b, r, p, b_bef, bud_tot, but_tot_floor, b_aft):
     logger.debug('burning = ' + str([z for z in b.queue]))
     logger.debug('in risk = ' + str([z for z in r.queue]))
     logger.debug('protected = ' + str([z for z in p.queue]))
-
 
 def simulate(n, g, budget, burns, B_cells, folder_sim):
     # set style
@@ -203,39 +203,57 @@ def simulate(n, g, budget, burns, B_cells, folder_sim):
     tot_untouched = len(list(v for v in g.vs["status"] if (v == UNTOUCHED_STATUS)))
     print_report(n, len(g.vs), iter, q_burning, q_risk, q_protected, budget, tot_untouched)
 
-def brute_get_routes():
-    graph = {
-        '1': ['2', '3', '4', '6'],
-        '2': ['5'],
-    }
-
-    result = list()
-    result.append([1])
-    n_set = set(graph.get(str(1), []))
-    gen_list(graph, result, n_set)
+def brute_get_routes(g, burning_start, neigb_start, propagation):
+    routes = []
+    gen_list(g, burning_start, neigb_start, propagation, routes)
+    return routes
 
 def main(argv):
 
-    v = 4
-    g = Graph.Lattice([v,v], nei=1, directed=False, mutual=True, circular=False)
+    # simulation parameters
+    v = 3
+    #g = Graph.Lattice([v,v], nei=1, directed=False, mutual=True, circular=False)
+    g = Graph()
+    g.add_vertices(7)
+    g.add_edges([(0, 1), (0, 2), (0, 3), (0, 5)])
+    g.add_edges([(1, 4), (2, 5), (2, 6)])
+
     g.layout_grid(0, 0, dim=2)
+    ga = g.get_adjlist()
     budget = 1.4
-    # if burns = -1, then burns all neighbors of v_i at each iteration i, otherwise burns b neighbors
-    burns = -1
-    B_cells = [3,4]
-    speed = 2
-    exp_id = get_sim_id(v, budget, burns, len(B_cells))
+    burns = 2 # if burns = -1, then burns all neighbors of v_i at each iteration i, otherwise burns n neighbors
+    Bs = [4]
+    Bn = []
+    for v in Bs: Bn.append(g.neighbors(v))
+
+    g = {
+        '1': ['2', '3', '4', '6'],
+        '2': ['5'],
+        #'3': ['6', '7'],
+    }
+    Bs = list()
+    Bs.append([1])
+    Bn = set(g.get(str(1), []))
+
+    # get the possible fire routes for brute force
+    fire_routes = brute_get_routes(g, Bs, Bn, burns)
+    print('-|-')
+    print(fire_routes)
+    exit(0)
+
+    # simulation ID
+    exp_id = get_sim_id(v, budget, burns, len(Bs))
     folder_sim = get_temp_folder(exp_id) + '/'
 
-
+    # logging
     hdlr = logging.FileHandler(folder_sim + 'brute.log', mode='w')
     formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
     hdlr.setFormatter(formatter)
     logger.addHandler(hdlr)
     logger.setLevel(logging.DEBUG)
 
-    simulate(v, g, budget, burns, B_cells, folder_sim)
-    save_simulation(exp_id, folder_sim, speed)
+    simulate(v, g, budget, burns, Bs, folder_sim)
+    save_simulation(exp_id, folder_sim, burns)
 
 if __name__ == "__main__":
     main(sys.argv[1:])
