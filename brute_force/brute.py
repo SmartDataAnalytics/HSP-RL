@@ -22,21 +22,26 @@ BURNING_STATUS = 3
 
 logger = logging.getLogger('hsp-ff-brute')
 
-def gen_list(graph, burning, neigb, propagation_value, out=[]):
-    if len(neigb) < 2:
-        if len(neigb) == 0:
-            print(burning)
+def gen_list(graph, Bs, Bn, prop, out=[]):
+    if len(Bs) == 0 and len(out) == 0: raise('nothing on fire!')
+    if len(Bn) < 2:
+        if len(Bn) == 0:
+            print(Bs)
         else:
-            out.append(burning[len(burning)-1]+list(neigb))
-            print(burning+[burning[len(burning)-1]+list(neigb)])
+            out.append(Bs[len(Bs)-1]+list(Bn))
+            print(Bs+[Bs[len(Bs)-1]+list(Bn)])
     else:
-        perm = list(itertools.combinations(neigb, propagation_value))
-        for i in perm:
-            burning1 = burning+[burning[len(burning)-1]+list(i)]
+        comb = list(itertools.combinations(Bn, prop))
+        for i in comb:
+            burning1 = Bs+[Bs[len(Bs)-1]+list(i)]
             neigb1 = set()
+            lastBs = set(Bs[len(Bs)-1]+list(i)) #Bs[len(Bs) - 1]
             for j in i:
-                neigb1 = neigb1.union(neigb.difference(i)).union(set(graph.get(str(j), [])))
-            gen_list(graph, burning1, neigb1, propagation_value, out)
+                neigb1 = neigb1.union(Bn.difference(i)).union(set(graph.neighbors(int(j))).difference(lastBs))
+                #neigb1.extend(graph.neighbors(int(j)))
+                #neigb1 = neigb1.union(Bn.difference(i)).union(set(graph.get(str(j), [])))
+
+            gen_list(graph, burning1, neigb1, prop, out)
 
 def get_temp_folder(exp_id):
     try:
@@ -203,40 +208,41 @@ def simulate(n, g, budget, burns, B_cells, folder_sim):
     tot_untouched = len(list(v for v in g.vs["status"] if (v == UNTOUCHED_STATUS)))
     print_report(n, len(g.vs), iter, q_burning, q_risk, q_protected, budget, tot_untouched)
 
-def brute_get_routes(g, burning_start, neigb_start, propagation):
+def brute_get_routes(g, Bs, Bn, propagation):
     routes = []
-    gen_list(g, burning_start, neigb_start, propagation, routes)
+    gen_list(g, Bs, Bn, propagation, routes)
     return routes
 
 def main(argv):
 
     # simulation parameters
     v = 3
-    #g = Graph.Lattice([v,v], nei=1, directed=False, mutual=True, circular=False)
-    g = Graph()
-    g.add_vertices(7)
-    g.add_edges([(0, 1), (0, 2), (0, 3), (0, 5)])
-    g.add_edges([(1, 4), (2, 5), (2, 6)])
+    g = Graph.Lattice([v,v], nei=1, directed=False, mutual=True, circular=False)
+    #g = Graph()
+    #g.add_vertices(7)
+    #g.add_edges([(0, 1), (0, 2), (0, 3), (0, 5)])
+    #g.add_edges([(1, 4), (2, 5), (2, 6)])
 
     g.layout_grid(0, 0, dim=2)
     ga = g.get_adjlist()
     budget = 1.4
     burns = 2 # if burns = -1, then burns all neighbors of v_i at each iteration i, otherwise burns n neighbors
-    Bs = [4]
-    Bn = []
-    for v in Bs: Bn.append(g.neighbors(v))
-
-    g = {
-        '1': ['2', '3', '4', '6'],
-        '2': ['5'],
-        #'3': ['6', '7'],
-    }
     Bs = list()
-    Bs.append([1])
-    Bn = set(g.get(str(1), []))
+    Bs.append([0])
+    Bn = []
+    for v in Bs: Bn.extend(g.neighbors(v[0]))
+
+    #g = {
+    #    '1': ['2', '3', '4', '5'],
+    #    '2': ['6'],
+    #    #'3': ['6', '7'],
+    #}
+    #Bs = list()
+    #Bs.append([1])
+    #Bn = set(g.get(str(1), []))
 
     # get the possible fire routes for brute force
-    fire_routes = brute_get_routes(g, Bs, Bn, burns)
+    fire_routes = brute_get_routes(g, Bs, set(Bn), burns)
     print('-|-')
     print(fire_routes)
     exit(0)
