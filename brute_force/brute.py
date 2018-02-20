@@ -9,6 +9,9 @@ import queue
 import logging
 import itertools
 
+dir_path = os.path.dirname(os.path.realpath(__file__))
+
+
 
 # style parameters
 UNTOUCHED_COLOR = "#A9A9A9"
@@ -21,16 +24,67 @@ BURNING_COLOR = "#FF0000"
 BURNING_STATUS = 3
 
 logger = logging.getLogger('hsp-ff-brute')
+brute_file = open(dir_path + '/output/brute_fire.txt', 'w')
+ff_file = open(dir_path + '/output/brute_ff.txt', 'w')
 
-def gen_list(graph, Bs, Bn, prop, out=[]):
-    if len(Bs) == 0 and len(out) == 0: raise('nothing on fire!')
-    if len(Bn) < 2:
-        if len(Bn) == 0:
-            print(Bs)
+
+def get_fire_fighters(g, Bs, frs, frs_id, burns, budget, Bh, Bi, Bj):
+    '''
+    :param g: the graph
+    :param Bs: the set of initial burning cells
+    :param frs: fire route simulation
+    :param burns: the number of new cells that burns at each iteration i
+    :param budget: the fixed budget amount
+    :param Bh: the budget at iteration i-1
+    :param Bi: the budget at iteration i
+    :param Bj: the budget at iteration i+1
+    :return:
+    '''
+    #[0, 1, 3, 2, 4, 5, 6, 8, 7]
+    for i in range(len(Bs), len(frs), burns):
+        # budget computation
+        Bh = Bj
+        Bi = round(budget + Bh, 2)
+        Bi_floor = round(math.floor(Bi), 2)
+        Bj = round(Bi - Bi_floor, 2)
+        print(budget, '--', Bh, Bi, Bi_floor, Bj)
+
+        if len(frs[i:(burns+i)]) <= Bi_floor:
+            ff_file.write(str(frs[i:(burns+i)])+'\n')
         else:
-            out.append(Bs[len(Bs)-1]+list(Bn))
-            print(Bs+[Bs[len(Bs)-1]+list(Bn)])
+            comb = list(itertools.combinations(frs[i:(burns+i)], Bi_floor))
+            for i in comb:
+                get_fire_fighters(g, )
+
+
+
+
+
+
+
+def gen_burning_list(graph, Bs, Bn, prop, out=[]):
+    '''
+    :param graph: the input graph
+    :param Bs: the burning cells
+    :param Bn: the burning cells neighbors
+    :param prop: the number of burning cells at each iteration
+    :param out: the sequence
+    :return:
+    '''
+    if len(Bs) == 0 and len(out) == 0: raise('nothing on fire!')
+
+    if len(Bn) < prop:
+        if len(Bn) == 0:
+            #print(Bs)
+            out.append(Bs)
+            brute_file.write(str(Bs)+'\n')
+        else:
+            out.append(Bs)
+            #out.append(Bs[len(Bs)-1]+list(Bn))
+            #print(Bs+[Bs[len(Bs)-1]+list(Bn)])
+            brute_file.write(str(Bs)+'\n')
     else:
+        # combinations for next iteration candidates
         comb = list(itertools.combinations(Bn, prop))
         for i in comb:
             burning1 = Bs+[Bs[len(Bs)-1]+list(i)]
@@ -41,7 +95,7 @@ def gen_list(graph, Bs, Bn, prop, out=[]):
                 #neigb1.extend(graph.neighbors(int(j)))
                 #neigb1 = neigb1.union(Bn.difference(i)).union(set(graph.get(str(j), [])))
 
-            gen_list(graph, burning1, neigb1, prop, out)
+            gen_burning_list(graph, burning1, neigb1, prop, out)
 
 def get_temp_folder(exp_id):
     try:
@@ -210,7 +264,7 @@ def simulate(n, g, budget, burns, B_cells, folder_sim):
 
 def brute_get_routes(g, Bs, Bn, propagation):
     routes = []
-    gen_list(g, Bs, Bn, propagation, routes)
+    gen_burning_list(g, Bs, Bn, propagation, routes)
     return routes
 
 def main(argv):
@@ -242,8 +296,20 @@ def main(argv):
     #Bn = set(g.get(str(1), []))
 
     # get the possible fire routes for brute force
+
     fire_routes = brute_get_routes(g, Bs, set(Bn), burns)
+    brute_file.close()
+
+    i = 1
+    for fire_route_sim in fire_routes:
+        get_fire_fighters(g, fire_route_sim[0], fire_route_sim[len(fire_route_sim)-1], i, burns, budget, 0.0, 0.0, 0.0)
+        i+=1
+        exit(0)
+
+
+
     print('-|-')
+    print(len(fire_routes))
     print(fire_routes)
     exit(0)
 
