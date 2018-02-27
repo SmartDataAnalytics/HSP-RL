@@ -24,11 +24,10 @@ BURNING_COLOR = "#FF0000"
 BURNING_STATUS = 3
 
 logger = logging.getLogger('hsp-ff-brute')
-brute_file = open(dir_path + '/output/brute_fire.txt', 'w')
 ff_file = open(dir_path + '/output/brute_ff.txt', 'w')
 
 
-def get_fire_fighters(g, Bs, frs, frs_id, burns, budget, Bh, Bi, Bj):
+def get_fire_fighters(g, fire_chain_id, fire_chain, tot_burns_i, budget, budget_h, budget_i, budget_j):
     '''
     :param g: the graph
     :param Bs: the set of initial burning cells
@@ -56,46 +55,72 @@ def get_fire_fighters(g, Bs, frs, frs_id, burns, budget, Bh, Bi, Bj):
             for i in comb:
                 get_fire_fighters(g, )
 
+def get_firefigthers_list(g, burn_seq, burn_seq_i, protect, neigb, budget, budget_h, budget_i, budget_j, out=[]):
+    if len(burn_seq) == 0 and len(out) == 0: raise('nothing to protect!')
 
-
-
-
-
-
-def gen_burning_list(graph, Bs, Bn, prop, out=[]):
-    '''
-    :param graph: the input graph
-    :param Bs: the burning cells
-    :param Bn: the burning cells neighbors
-    :param prop: the number of burning cells at each iteration
-    :param out: the sequence
-    :return:
-    '''
-    if len(Bs) == 0 and len(out) == 0: raise('nothing on fire!')
-
-    if len(Bn) < prop:
-        if len(Bn) == 0:
-            #print(Bs)
-            out.append(Bs)
-            brute_file.write(str(Bs)+'\n')
+    if burn_seq_i in (0,1):
+        get_firefigthers_list(g, burn_seq, burn_seq_i+1, protect, neigb, budget, budget_h, budget_i, budget_j, out)
+    else:
+        #last step
+        if burn_seq_i == len(burn_seq)-1:
+            out.append(protect)
+        #fire does not spread further
+        elif set(burn_seq[burn_seq_i]).intersection(set(burn_seq[burn_seq_i-1])) == \
+                set(burn_seq[burn_seq_i]):
+            out.append(protect)
+        #can protect all
+        elif len(burn_seq[burn_seq_i] <= budget_i):
+            protect = protect + [protect[len(protect) - 1] + burn_seq[burn_seq_i]]
+            out.append(protect)
         else:
-            out.append(Bs)
+            budget_h = budget_j
+            budget_i = round(budget + budget_h, 2)
+            budget_i_floor = round(math.floor(budget_i), 2)
+            budget_j = round(budget_i - budget_i_floor, 2)
+            comb = list(itertools.combinations(neigb, budget_i_floor))
+            for i in comb:
+                protect1 = protect + [protect[len(protect) - 1] + list(i)]
+                neigb1 = set()
+                lastBs = set(burning[len(burning) - 1] + list(i))  # burning[len(burning) - 1]
+                for j in i:
+                    neigb1 = neigb1.union(neigb.difference(i)).union(set(g.neighbors(int(j))).difference(lastBs))
+                print(':: possibilities = ', comb, 'neig = ', neigb1)
+
+                get_firefigthers_list(g, burning1, neigb1, prop, out)
+
+
+
+
+
+
+
+def gen_burning_list(output_file, graph, burning, neigb, prop, out=[]):
+    if len(burning) == 0 and len(out) == 0: raise('nothing on fire!')
+
+    if len(neigb) < prop:
+        if len(neigb) == 0:
+            #print(Bs)
+            out.append(burning)
+            output_file.write(str(burning)+'\n')
+        else:
+            out.append([[burning], [neigb]])
             #out.append(Bs[len(Bs)-1]+list(Bn))
             #print(Bs+[Bs[len(Bs)-1]+list(Bn)])
-            brute_file.write(str(Bs)+'\n')
+            output_file.write(str(burning)+'\n')
     else:
         # combinations for next iteration candidates
-        comb = list(itertools.combinations(Bn, prop))
+        comb = list(itertools.combinations(neigb, prop))
         for i in comb:
-            burning1 = Bs+[Bs[len(Bs)-1]+list(i)]
+            burning1 = burning+[burning[len(burning)-1]+list(i)]
             neigb1 = set()
-            lastBs = set(Bs[len(Bs)-1]+list(i)) #Bs[len(Bs) - 1]
+            lastBs = set(burning[len(burning)-1]+list(i)) #burning[len(burning) - 1]
             for j in i:
-                neigb1 = neigb1.union(Bn.difference(i)).union(set(graph.neighbors(int(j))).difference(lastBs))
+                neigb1 = neigb1.union(neigb.difference(i)).union(set(graph.neighbors(int(j))).difference(lastBs))
                 #neigb1.extend(graph.neighbors(int(j)))
-                #neigb1 = neigb1.union(Bn.difference(i)).union(set(graph.get(str(j), [])))
+                #neigb1 = neigb1.union(neigb.difference(i)).union(set(graph.get(str(j), [])))
+            print(':: possibilities = ', comb, 'neig = ', neigb1)
 
-            gen_burning_list(graph, burning1, neigb1, prop, out)
+            gen_burning_list(output_file, graph, burning1, neigb1, prop, out)
 
 def get_temp_folder(exp_id):
     try:
@@ -262,16 +287,18 @@ def simulate(n, g, budget, burns, B_cells, folder_sim):
     tot_untouched = len(list(v for v in g.vs["status"] if (v == UNTOUCHED_STATUS)))
     print_report(n, len(g.vs), iter, q_burning, q_risk, q_protected, budget, tot_untouched)
 
-def brute_get_routes(g, Bs, Bn, propagation):
+def brute_get_routes(exp_id, g, Bs, Bn, propagation):
     routes = []
-    gen_burning_list(g, Bs, Bn, propagation, routes)
+    brute_file = open(dir_path + '/output/' + exp_id + '/' + exp_id + '.brute.fire', 'w')
+    gen_burning_list(brute_file, g, Bs, Bn, propagation, routes)
+    brute_file.close()
     return routes
 
 def main(argv):
 
     # simulation parameters
-    v = 3
-    g = Graph.Lattice([v,v], nei=1, directed=False, mutual=True, circular=False)
+    vertices = 3
+    g = Graph.Lattice([vertices,vertices], nei=1, directed=False, mutual=True, circular=False)
     #g = Graph()
     #g.add_vertices(7)
     #g.add_edges([(0, 1), (0, 2), (0, 3), (0, 5)])
@@ -286,6 +313,10 @@ def main(argv):
     Bn = []
     for v in Bs: Bn.extend(g.neighbors(v[0]))
 
+    # simulation ID
+    exp_id = get_sim_id(vertices, budget, burns, len(Bs))
+    folder_sim = get_temp_folder(exp_id) + '/'
+
     #g = {
     #    '1': ['2', '3', '4', '5'],
     #    '2': ['6'],
@@ -297,25 +328,25 @@ def main(argv):
 
     # get the possible fire routes for brute force
 
-    fire_routes = brute_get_routes(g, Bs, set(Bn), burns)
-    brute_file.close()
+    fire_routes = brute_get_routes(exp_id, g, Bs, set(Bn), burns)
+    print('nr. simulations: ', fire_routes)
+    exit(0)
+    fire_sim_id = 0
+    for fire_chain in fire_routes:
+        ff_file = open(dir_path + '/output/' + exp_id + '/' + exp_id + '.brute.' + fire_sim_id + '.ff', 'w')
+        ff = get_firefigthers_list(g, fire_chain, 0, [], [], budget, 0.0, 0.0, 0.0)
+        ff_file.writelines(ff)
+        ff_file.close()
+        fire_sim_id+=1
 
-    i = 1
-    for fire_route_sim in fire_routes:
-        get_fire_fighters(g, fire_route_sim[0], fire_route_sim[len(fire_route_sim)-1], i, burns, budget, 0.0, 0.0, 0.0)
-        i+=1
-        exit(0)
-
-
-
+    print('')
+    exit(0)
     print('-|-')
     print(len(fire_routes))
     print(fire_routes)
     exit(0)
 
-    # simulation ID
-    exp_id = get_sim_id(v, budget, burns, len(Bs))
-    folder_sim = get_temp_folder(exp_id) + '/'
+
 
     # logging
     hdlr = logging.FileHandler(folder_sim + 'brute.log', mode='w')
@@ -324,7 +355,8 @@ def main(argv):
     logger.addHandler(hdlr)
     logger.setLevel(logging.DEBUG)
 
-    simulate(v, g, budget, burns, Bs, folder_sim)
+    simulate(vertices, g, budget, burns, Bs, folder_sim)
+
     save_simulation(exp_id, folder_sim, burns)
 
 if __name__ == "__main__":
