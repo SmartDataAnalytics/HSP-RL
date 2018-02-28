@@ -29,12 +29,19 @@ ff_file = open(dir_path + '/output/brute_ff.txt', 'w')
 
 def get_firefigthers_list(graph, burn_seq):
     out = []
+    #prevs = {}
     for i in range(len(burn_seq)):
-        j = burn_seq[i]
-        neigb1 = ()
-        for n in j:
-            neigb1 = set(neigb1.union(set(graph.neighbors(int(n)))))
-        out.append([neigb1])
+        s = set(burn_seq[i])
+        #s = set(s).difference(prevs)
+        lastBs = set()
+        if i>0:
+            lastBs = set(burn_seq[i-1])
+        neigb1 = set()
+        for j in s:
+            neigb1 = neigb1.union(set(graph.neighbors(int(j))).difference(lastBs))
+        neigb1 = neigb1.difference(s)
+        out.append(list(neigb1))
+        #prevs = s
     return out
 
 
@@ -309,14 +316,17 @@ def main(argv):
 
     fire_routes = brute_get_routes(exp_id, g, Bs, set(Bn), burns)
     print('nr. simulations: ', fire_routes)
-    exit(0)
     fire_sim_id = 0
+    ff_file = open(dir_path + '/output/' + exp_id + '/' + exp_id + '.brute.ff', 'w')
     for fire_chain in fire_routes:
-        ff_file = open(dir_path + '/output/' + exp_id + '/' + exp_id + '.brute.' + fire_sim_id + '.ff', 'w')
-        ff = get_firefigthers_list(g, fire_chain, 0, [], [], budget, 0.0, 0.0, 0.0)
-        ff_file.writelines(ff)
-        ff_file.close()
+        ff = get_firefigthers_list(g, fire_chain)
+        ff_file.write(str(ff)+'\n')
         fire_sim_id+=1
+    ff_file.close()
+    exit(0)
+
+    #ff = get_firefigthers_list(g, fire_chain, 0, [], [], budget, 0.0, 0.0, 0.0)
+
 
     print('')
     exit(0)
