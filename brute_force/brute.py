@@ -11,8 +11,6 @@ import itertools
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
-
-
 # style parameters
 UNTOUCHED_COLOR = "#A9A9A9"
 UNTOUCHED_STATUS = 0
@@ -29,10 +27,8 @@ ff_file = open(dir_path + '/output/brute_ff.txt', 'w')
 
 def get_firefigthers_list(graph, burn_seq):
     out = []
-    #prevs = {}
     for i in range(len(burn_seq)):
         s = set(burn_seq[i])
-        #s = set(s).difference(prevs)
         lastBs = set()
         if i>0:
             lastBs = set(burn_seq[i-1])
@@ -41,9 +37,19 @@ def get_firefigthers_list(graph, burn_seq):
             neigb1 = neigb1.union(set(graph.neighbors(int(j))).difference(lastBs))
         neigb1 = neigb1.difference(s)
         out.append(list(neigb1))
-        #prevs = s
     return out
 
+def get_ff_routes(id, fire_route, fire_route_neigh, budget, budget_h, budget_i, budget_j, out=[]):
+
+
+    # append the id and the sequence
+    out.append([[id], [seq]])
+
+
+
+def simulate_brute(g, fire_route, fire_route_neigh, budget):
+    return run_firefigthers_against_fire_path(g, fire_route, fire_route_neigh, budget, out=[])
+    #ff = get_firefigthers_list(g, fire_chain, 0, [], [], budget, 0.0, 0.0, 0.0)
 
 def run_firefigthers_against_fire_path(g, burn_seq, burn_seq_i, protect, neigb, budget, budget_h, budget_i, budget_j, out=[]):
     if len(burn_seq) == 0 and len(out) == 0: raise('nothing to protect!')
@@ -104,7 +110,6 @@ def gen_burning_list(output_file, graph, burning, neigb, prop, out=[]):
                 neigb1 = neigb1.union(neigb.difference(i)).union(set(graph.neighbors(int(j))).difference(lastBs))
                 #neigb1.extend(graph.neighbors(int(j)))
                 #neigb1 = neigb1.union(neigb.difference(i)).union(set(graph.get(str(j), [])))
-            print(':: possibilities = ', comb, 'neig = ', neigb1)
 
             gen_burning_list(output_file, graph, burning1, neigb1, prop, out)
 
@@ -275,7 +280,7 @@ def simulate(n, g, budget, burns, B_cells, folder_sim):
 
 def brute_get_routes(exp_id, g, Bs, Bn, propagation):
     routes = []
-    brute_file = open(dir_path + '/output/' + exp_id + '/' + exp_id + '.brute.fire', 'w')
+    brute_file = open(dir_path + '/output/' + exp_id + '/' + exp_id + '.fire.routes', 'w')
     gen_burning_list(brute_file, g, Bs, Bn, propagation, routes)
     brute_file.close()
     return routes
@@ -313,40 +318,40 @@ def main(argv):
     #Bn = set(g.get(str(1), []))
 
     # get the possible fire routes for brute force
-
     fire_routes = brute_get_routes(exp_id, g, Bs, set(Bn), burns)
-    print('nr. simulations: ', fire_routes)
-    fire_sim_id = 0
-    ff_file = open(dir_path + '/output/' + exp_id + '/' + exp_id + '.brute.ff', 'w')
+    print('nr. sequences of states: ', len(fire_routes))
+
+
+    # get the possible firefighters (ff) locations (neighbors)
+    fire_routes_neigh = []
+    ff_file = open(dir_path + '/output/' + exp_id + '/' + exp_id + '.fire.routes.neigh', 'w')
     for fire_chain in fire_routes:
         ff = get_firefigthers_list(g, fire_chain)
         ff_file.write(str(ff)+'\n')
-        fire_sim_id+=1
+        fire_routes_neigh.append(ff)
     ff_file.close()
-    exit(0)
 
-    #ff = get_firefigthers_list(g, fire_chain, 0, [], [], budget, 0.0, 0.0, 0.0)
+    assert len(fire_routes_neigh) == len(fire_routes)
 
+    # get ff's routes for each fire route
+    ff_sim = open(dir_path + '/output/' + exp_id + '/' + exp_id + '.ff.routes', 'w')
+    for id_fire_route in range(len(fire_routes)):
+        out_sim = simulate_brute(g, fire_routes[id_fire_route], fire_routes_neigh[id_fire_route], budget)
+        for out in out_sim:
+            ff_sim.write(str(id_fire_route) + '\t' + str(out) + '\n')
+    ff_sim.close()
 
-    print('')
-    exit(0)
-    print('-|-')
-    print(len(fire_routes))
-    print(fire_routes)
-    exit(0)
+    if 1==2:
+        # logging
+        hdlr = logging.FileHandler(folder_sim + 'brute.log', mode='w')
+        formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+        hdlr.setFormatter(formatter)
+        logger.addHandler(hdlr)
+        logger.setLevel(logging.DEBUG)
 
+        simulate(vertices, g, budget, burns, Bs, folder_sim)
 
-
-    # logging
-    hdlr = logging.FileHandler(folder_sim + 'brute.log', mode='w')
-    formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-    hdlr.setFormatter(formatter)
-    logger.addHandler(hdlr)
-    logger.setLevel(logging.DEBUG)
-
-    simulate(vertices, g, budget, burns, Bs, folder_sim)
-
-    save_simulation(exp_id, folder_sim, burns)
+        save_simulation(exp_id, folder_sim, burns)
 
 if __name__ == "__main__":
     main(sys.argv[1:])
