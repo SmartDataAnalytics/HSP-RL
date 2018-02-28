@@ -27,40 +27,25 @@ logger = logging.getLogger('hsp-ff-brute')
 ff_file = open(dir_path + '/output/brute_ff.txt', 'w')
 
 
-def get_fire_fighters(g, fire_chain_id, fire_chain, tot_burns_i, budget, budget_h, budget_i, budget_j):
-    '''
-    :param g: the graph
-    :param Bs: the set of initial burning cells
-    :param frs: fire route simulation
-    :param burns: the number of new cells that burns at each iteration i
-    :param budget: the fixed budget amount
-    :param Bh: the budget at iteration i-1
-    :param Bi: the budget at iteration i
-    :param Bj: the budget at iteration i+1
-    :return:
-    '''
-    #[0, 1, 3, 2, 4, 5, 6, 8, 7]
-    for i in range(len(Bs), len(frs), burns):
-        # budget computation
-        Bh = Bj
-        Bi = round(budget + Bh, 2)
-        Bi_floor = round(math.floor(Bi), 2)
-        Bj = round(Bi - Bi_floor, 2)
-        print(budget, '--', Bh, Bi, Bi_floor, Bj)
+def get_firefigthers_list(graph, burn_seq):
+    out = []
+    for i in range(len(burn_seq)):
+        j = burn_seq[i]
+        neigb1 = ()
+        for n in j:
+            neigb1 = set(neigb1.union(set(graph.neighbors(int(n)))))
+        out.append([neigb1])
+    return out
 
-        if len(frs[i:(burns+i)]) <= Bi_floor:
-            ff_file.write(str(frs[i:(burns+i)])+'\n')
-        else:
-            comb = list(itertools.combinations(frs[i:(burns+i)], Bi_floor))
-            for i in comb:
-                get_fire_fighters(g, )
 
-def get_firefigthers_list(g, burn_seq, burn_seq_i, protect, neigb, budget, budget_h, budget_i, budget_j, out=[]):
+def run_firefigthers_against_fire_path(g, burn_seq, burn_seq_i, protect, neigb, budget, budget_h, budget_i, budget_j, out=[]):
     if len(burn_seq) == 0 and len(out) == 0: raise('nothing to protect!')
 
     if burn_seq_i in (0,1):
-        get_firefigthers_list(g, burn_seq, burn_seq_i+1, protect, neigb, budget, budget_h, budget_i, budget_j, out)
+        run_firefigthers_against_fire_path(g, burn_seq, burn_seq_i+1, protect, neigb, budget, budget_h, budget_i, budget_j, out)
     else:
+        #remove cells blocked by previous iteration
+
         #last step
         if burn_seq_i == len(burn_seq)-1:
             out.append(protect)
@@ -69,7 +54,7 @@ def get_firefigthers_list(g, burn_seq, burn_seq_i, protect, neigb, budget, budge
                 set(burn_seq[burn_seq_i]):
             out.append(protect)
         #can protect all
-        elif len(burn_seq[burn_seq_i] <= budget_i):
+        elif budget_i > len(burn_seq[burn_seq_i]):
             protect = protect + [protect[len(protect) - 1] + burn_seq[burn_seq_i]]
             out.append(protect)
         else:
@@ -86,13 +71,7 @@ def get_firefigthers_list(g, burn_seq, burn_seq_i, protect, neigb, budget, budge
                     neigb1 = neigb1.union(neigb.difference(i)).union(set(g.neighbors(int(j))).difference(lastBs))
                 print(':: possibilities = ', comb, 'neig = ', neigb1)
 
-                get_firefigthers_list(g, burning1, neigb1, prop, out)
-
-
-
-
-
-
+                run_firefigthers_against_fire_path(g, burning1, neigb1, prop, out)
 
 def gen_burning_list(output_file, graph, burning, neigb, prop, out=[]):
     if len(burning) == 0 and len(out) == 0: raise('nothing on fire!')
