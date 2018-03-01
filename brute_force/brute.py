@@ -24,7 +24,6 @@ BURNING_STATUS = 3
 logger = logging.getLogger('hsp-ff-brute')
 ff_file = open(dir_path + '/output/brute_ff.txt', 'w')
 
-
 def get_firefigthers_list(graph, burn_seq):
     out = []
     for i in range(len(burn_seq)):
@@ -39,52 +38,39 @@ def get_firefigthers_list(graph, burn_seq):
         out.append(list(neigb1))
     return out
 
-def get_ff_routes(id, fire_route, fire_route_neigh, budget, budget_h, budget_i, budget_j, out=[]):
+def get_sequence_of_budget(len_seq, budget):
+    budgets = []
+    budget_h = 0.0
+    budget_j = 0.0
+    for i in range(len_seq):
+        budget_h = budget_j
+        budget_i = round(budget + budget_h, 2)
+        budget_i_floor = round(math.floor(budget_i), 2)
+        budget_j = round(budget_i - budget_i_floor, 2)
+        budgets.append(budget_i_floor)
+    return budgets
 
 
-    # append the id and the sequence
-    out.append([[id], [seq]])
+def get_ff_sequence(fire_route, fire_route_neigs, i, budgets, out):
 
+    if len(fire_route) == 0 and len(out) == 0: raise('nothing to protect!')
 
-
-def simulate_brute(g, fire_route, fire_route_neigh, budget):
-    return run_firefigthers_against_fire_path(g, fire_route, fire_route_neigh, budget, out=[])
-    #ff = get_firefigthers_list(g, fire_chain, 0, [], [], budget, 0.0, 0.0, 0.0)
-
-def run_firefigthers_against_fire_path(g, burn_seq, burn_seq_i, protect, neigb, budget, budget_h, budget_i, budget_j, out=[]):
-    if len(burn_seq) == 0 and len(out) == 0: raise('nothing to protect!')
-
-    if burn_seq_i in (0,1):
-        run_firefigthers_against_fire_path(g, burn_seq, burn_seq_i+1, protect, neigb, budget, budget_h, budget_i, budget_j, out)
+    if i in (0,1):
+        get_ff_sequence(fire_route, fire_route_neigs, i+1, budgets, out)
     else:
-        #remove cells blocked by previous iteration
+        if i < len(fire_route) - 1:
+            n = fire_route_neigs[i-1]
+            if budgets[i-2] > len(n):
+                out.append(n)
+            else:
+                comb = list(itertools.combinations(n, budgets[i-2]))
+                for c in comb:
+                    out.append(list(c))
+                    get_ff_sequence(fire_route, fire_route_neigs, i+1, budgets, out)
 
-        #last step
-        if burn_seq_i == len(burn_seq)-1:
-            out.append(protect)
-        #fire does not spread further
-        elif set(burn_seq[burn_seq_i]).intersection(set(burn_seq[burn_seq_i-1])) == \
-                set(burn_seq[burn_seq_i]):
-            out.append(protect)
-        #can protect all
-        elif budget_i > len(burn_seq[burn_seq_i]):
-            protect = protect + [protect[len(protect) - 1] + burn_seq[burn_seq_i]]
-            out.append(protect)
-        else:
-            budget_h = budget_j
-            budget_i = round(budget + budget_h, 2)
-            budget_i_floor = round(math.floor(budget_i), 2)
-            budget_j = round(budget_i - budget_i_floor, 2)
-            comb = list(itertools.combinations(neigb, budget_i_floor))
-            for i in comb:
-                protect1 = protect + [protect[len(protect) - 1] + list(i)]
-                neigb1 = set()
-                lastBs = set(burning[len(burning) - 1] + list(i))  # burning[len(burning) - 1]
-                for j in i:
-                    neigb1 = neigb1.union(neigb.difference(i)).union(set(g.neighbors(int(j))).difference(lastBs))
-                print(':: possibilities = ', comb, 'neig = ', neigb1)
-
-                run_firefigthers_against_fire_path(g, burning1, neigb1, prop, out)
+def get_ff_route_per_fire_route(fire_route, fire_route_neigh, budget, out=[]):
+    budgets = get_sequence_of_budget(len(fire_route), budget)
+    get_ff_sequence(fire_route, fire_route_neigh, 0, budgets, out)
 
 def gen_burning_list(output_file, graph, burning, neigb, prop, out=[]):
     if len(burning) == 0 and len(out) == 0: raise('nothing on fire!')
@@ -336,7 +322,8 @@ def main(argv):
     # get ff's routes for each fire route
     ff_sim = open(dir_path + '/output/' + exp_id + '/' + exp_id + '.ff.routes', 'w')
     for id_fire_route in range(len(fire_routes)):
-        out_sim = simulate_brute(g, fire_routes[id_fire_route], fire_routes_neigh[id_fire_route], budget)
+        out_sim = []
+        get_ff_route_per_fire_route(fire_routes[id_fire_route], fire_routes_neigh[id_fire_route], budget, out_sim)
         for out in out_sim:
             ff_sim.write(str(id_fire_route) + '\t' + str(out) + '\n')
     ff_sim.close()
