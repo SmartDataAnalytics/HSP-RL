@@ -51,28 +51,26 @@ def get_sequence_of_budget(len_seq, budget):
     return budgets
 
 
-def get_ff_sequence(fire_route, fire_route_neigs, i, budgets, out):
+def get_ff_route_per_fire_route(i, F, Fn, B, FF, out=[]):
 
-    if len(fire_route) == 0 and len(out) == 0: raise('nothing to protect!')
+    if len(F) == 0 and len(out) == 0: raise('nothing to protect!')
 
-    if i in (0,1):
-        get_ff_sequence(fire_route, fire_route_neigs, i+1, budgets, out)
+    if i > len(F):
+        out.append(FF)
     else:
-        if i < len(fire_route) - 1:
-            n = fire_route_neigs[i-1]
-            if budgets[i-2] > len(n):
-                out.append(n)
-            else:
-                comb = list(itertools.combinations(n, budgets[i-2]))
-                for c in comb:
-                    out.append(list(c))
-                    get_ff_sequence(fire_route, fire_route_neigs, i+1, budgets, out)
+        ni = Fn[i-2]
+        if B[i-2] > len(ni):
+            FF1 = FF + [FF[len(FF) - 1] + list(ni)]
+            get_ff_route_per_fire_route(i+1, F, Fn, B, FF1, out)
+        else:
+            comb = list(itertools.combinations(ni, B[i-2]))
+            for c in comb:
+                FF1 = FF + [list(c)]
+                get_ff_route_per_fire_route(i+1, F, Fn, B, FF1, out)
 
-def get_ff_route_per_fire_route(fire_route, fire_route_neigh, budget, out=[]):
-    budgets = get_sequence_of_budget(len(fire_route), budget)
-    get_ff_sequence(fire_route, fire_route_neigh, 0, budgets, out)
 
 def gen_burning_list(output_file, graph, burning, neigb, prop, out=[]):
+
     if len(burning) == 0 and len(out) == 0: raise('nothing on fire!')
 
     if len(neigb) < prop:
@@ -321,12 +319,15 @@ def main(argv):
 
     # get ff's routes for each fire route
     ff_sim = open(dir_path + '/output/' + exp_id + '/' + exp_id + '.ff.routes', 'w')
+    budgets = get_sequence_of_budget((len(fire_routes[0])-2), budget)
     for id_fire_route in range(len(fire_routes)):
         out_sim = []
-        get_ff_route_per_fire_route(fire_routes[id_fire_route], fire_routes_neigh[id_fire_route], budget, out_sim)
+        get_ff_route_per_fire_route(2, fire_routes[id_fire_route], fire_routes_neigh[id_fire_route], budgets, [], out_sim)
         for out in out_sim:
             ff_sim.write(str(id_fire_route) + '\t' + str(out) + '\n')
     ff_sim.close()
+
+    # run states x routes and get stats
 
     if 1==2:
         # logging
