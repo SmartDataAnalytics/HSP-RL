@@ -292,6 +292,9 @@ def run_final_brute(fire_routes, ff_routes):
             xbef=x.copy()
     return F
 
+def get_statistics(file):
+    print('asd')
+
 
 def main(argv):
 
@@ -302,6 +305,7 @@ def main(argv):
     #g.add_vertices(7)
     #g.add_edges([(0, 1), (0, 2), (0, 3), (0, 5)])
     #g.add_edges([(1, 4), (2, 5), (2, 6)])
+
 
     g.layout_grid(0, 0, dim=2)
     ga = g.get_adjlist()
@@ -350,16 +354,26 @@ def main(argv):
     # get ff's routes for each fire route
     ff_sim = open(dir_path + '/output/' + exp_id + '/' + exp_id + '.ff.routes', 'w')
     ff_sim_final = open(dir_path + '/output/' + exp_id + '/' + exp_id + '.ff.routes.final', 'w')
+    ff_sim_stats = open(dir_path + '/output/' + exp_id + '/' + exp_id + '.ff.routes.stats', 'w')
     for id_fire_route in range(len(fire_routes)):
         ff_routes = []
         get_ff_route_per_fire_route(fire_routes[id_fire_route], fire_routes_neigh[id_fire_route], budgets, ff_routes)
+        ff_sim_stats.write('id_sim\tnr_burning_start\ttot_iterations\ttot_burns\t')
         for ffs in ff_routes:
             ff_sim.write(str(id_fire_route) + '\t' + str(ffs) + '\n')
             # final fire routes
             out = run_final_brute(fire_routes[id_fire_route], ffs)
             ff_sim_final.write(str(id_fire_route) + '\t' + str(out) + '\n')
+            nburning = len(out[-1])
+            k = str(id_fire_route) + '\t' + str(len(Bs)) + '\t' + str(len(out)) + \
+                '\t' + str(nburning) + '\t' + str(g.vcount()-nburning) + '\t' + \
+                str(g.vcount()) + '\t' + str(budget) + '\t' + str(burns) + '\n'
+            ff_sim_stats.write(k)
 
     ff_sim.close()
+    ff_sim_stats.close()
+
+    get_statistics(ff_sim_final)
     ff_sim_final.close()
 
     if 1==2:
