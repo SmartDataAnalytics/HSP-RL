@@ -30,5 +30,4 @@ wheels/
 temp.txt
 brute.log
 temp/
-brute_force/output/
 .DS_Store
