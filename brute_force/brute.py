@@ -82,15 +82,18 @@ def gen_burning_list(output_file, graph, burning, neigb, prop, out=[]):
     if len(burning) == 0 and len(out) == 0: raise('nothing on fire!')
 
     if len(neigb) < prop:
-        if len(neigb) == 0:
-            #print(Bs)
-            out.append(burning)
-            output_file.write(str(burning)+'\n')
-        else:
-            out.append([[burning], [neigb]])
-            #out.append(Bs[len(Bs)-1]+list(Bn))
-            #print(Bs+[Bs[len(Bs)-1]+list(Bn)])
-            output_file.write(str(burning)+'\n')
+        out.append(burning)
+        output_file.write(str(burning) + '\n')
+
+        #if len(neigb) == 0:
+        #    #print(Bs)
+        #    out.append(burning)
+        #    output_file.write(str(burning)+'\n')
+        #else:
+        #    out.append([[burning], [neigb]])
+        #    #out.append(Bs[len(Bs)-1]+list(Bn))
+        #    #print(Bs+[Bs[len(Bs)-1]+list(Bn)])
+        #    output_file.write(str(burning)+'\n')
     else:
         # combinations for next iteration candidates
         comb = list(itertools.combinations(neigb, prop))
@@ -291,14 +294,10 @@ def run_final_brute(fire_routes, ff_routes):
             xbef=x.copy()
     return F
 
-def get_statistics(file):
-    print('asd')
-
-
 def main(argv):
 
     # simulation parameters
-    vertices = 3
+    vertices = 4
     g = Graph.Lattice([vertices,vertices], nei=1, directed=False, mutual=True, circular=False)
     #g = Graph()
     #g.add_vertices(7)
@@ -356,6 +355,9 @@ def main(argv):
     ff_sim_stats = open(dir_path + '/output/' + exp_id + '/' + exp_id + '.ff.routes.stats', 'w')
     ff_sim_stats.write(
         'id_sim\tnr_burning_start\ttot_budget\ttot_burns_i\ttot_vertex\ttot_burning\ttot_protected\ttot_iterations\n')
+    MIN_BURNING = 9999999999
+    MAX_PROTECTED = 0
+    MIN_ITERATIONS = 9999999999
     for id_fire_route in range(len(fire_routes)):
         ff_routes = []
         get_ff_route_per_fire_route(fire_routes[id_fire_route], fire_routes_neigh[id_fire_route], budgets, ff_routes)
@@ -365,6 +367,12 @@ def main(argv):
             out = run_final_brute(fire_routes[id_fire_route], ffs)
             ff_sim_final.write(str(id_fire_route) + '\t' + str(out) + '\n')
             nburning = len(out[-1])
+            if nburning < MIN_BURNING:
+                MIN_BURNING = nburning
+            if (g.vcount()-nburning) > MAX_PROTECTED:
+                MAX_PROTECTED = g.vcount()-nburning
+            if len(out)-2 < MIN_ITERATIONS:
+                MIN_ITERATIONS = len(out)-2
             k = str(id_fire_route) + '\t' + str(len(Bs)) + '\t' + str(budget) + \
                 '\t' + str(burns) + '\t' + str(g.vcount()) + '\t' + str(nburning)  + '\t' + \
                 str(g.vcount()-nburning) + '\t' + str(len(out)-2) + '\n'
@@ -372,9 +380,9 @@ def main(argv):
 
     ff_sim.close()
     ff_sim_stats.close()
-
-    get_statistics(ff_sim_final)
     ff_sim_final.close()
+
+    print(':: min burning = %s, max protected = %s, min_iterations = %s' % (MIN_BURNING, MAX_PROTECTED, MIN_ITERATIONS))
 
     if 1==2:
         # logging
