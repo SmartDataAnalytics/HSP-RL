@@ -76,12 +76,19 @@ def get_ff_route_per_fire_route(F, Fn, B, out=[], i=2, FF=[]):
                 FF1 = FF + [list(c)]
                 get_ff_route_per_fire_route(F, Fn, B, out, i+1, FF1)
 
-
 def gen_burning_list(output_file, graph, burning, neigb, prop, out=[]):
+    '''
+    :param output_file:
+    :param graph: graph
+    :param burning: if -1, then spreads to all neighbours
+    :param neigb: the neighbors of a given set of burning cells
+    :param prop: the propagation rate
+    :param out: the final burning list
+    '''
 
     if len(burning) == 0 and len(out) == 0: raise('nothing on fire!')
 
-    if len(neigb) < prop:
+    if len(neigb) < prop or len(neigb) == 0:
         out.append(burning)
         output_file.write(str(burning) + '\n')
 
@@ -96,7 +103,10 @@ def gen_burning_list(output_file, graph, burning, neigb, prop, out=[]):
         #    output_file.write(str(burning)+'\n')
     else:
         # combinations for next iteration candidates
-        comb = list(itertools.combinations(neigb, prop))
+        if prop == -1:
+            comb = [tuple(neigb)]
+        else:
+            comb = list(itertools.combinations(neigb, prop))
         for i in comb:
             burning1 = burning+[burning[len(burning)-1]+list(i)]
             neigb1 = set()
@@ -297,7 +307,7 @@ def run_final_brute(fire_routes, ff_routes):
 def main(argv):
 
     # simulation parameters
-    vertices = 4
+    vertices = 3
     g = Graph.Lattice([vertices,vertices], nei=1, directed=False, mutual=True, circular=False)
     #g = Graph()
     #g.add_vertices(7)
