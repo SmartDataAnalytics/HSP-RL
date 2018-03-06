@@ -78,7 +78,7 @@ def get_ff_route_per_fire_route(F, Fn, B, out=[], i=2, FF=[]):
 
 def gen_burning_list(output_file, graph, burning, neigb, prop, out=[]):
     '''
-    :param output_file:
+    :param output_file: the output file
     :param graph: graph
     :param burning: if -1, then spreads to all neighbours
     :param neigb: the neighbors of a given set of burning cells
