@@ -18,7 +18,7 @@ matplotlib.style.use('ggplot')
 
 env = GridworldEnv()
 
-fire_sim = fireSimulation(2)
+fire_sim = []
 
 def make_epsilon_greedy_policy(Q, epsilon, nA):
 
@@ -51,18 +51,25 @@ def sarsa(env, num_episodes, discount_factor=1.0, alpha=0.5, epsilon=0.1):
         state = env.reset()
         action_probs = policy(state)
         action = np.random.choice(np.arange(len(action_probs)), p=action_probs)
-
+        fire_sim = fireSimulation(4)
         
         # One step in the environment
         for t in itertools.count():
             
             # Change P (Fire Iteration)
-            iterFire(fire_sim.fire)
+            
+            fire_sim.iterFire(fire_sim.fire)
+            fire_sim.time +=1
 
-            env.changeP(fire_sim.fire)
+            fire_sim.fire = env.changeP(fire_sim.fire,fire_sim.time)
     
             # Take a step
-            next_state, reward, done, _ = env.step(action)
+            fire_sim.fire, next_state, reward, done, _ = env.step(action,fire_sim.fire)
+
+#            fire_sim._renderFire(fire = fire_sim.fire)
+#            print()
+            #print(t)
+            
 
             # Pick the next action
             next_action_probs = policy(next_state)
@@ -77,7 +84,7 @@ def sarsa(env, num_episodes, discount_factor=1.0, alpha=0.5, epsilon=0.1):
             td_delta = td_target - Q[state][action]
             Q[state][action] += alpha * td_delta
     
-            if done:
+            if not fire_sim.checkFire(fire_sim.fire):
                 print(t)
                 break
                 
@@ -87,14 +94,15 @@ def sarsa(env, num_episodes, discount_factor=1.0, alpha=0.5, epsilon=0.1):
     return Q, stats
 
 
-#Q, stats = sarsa(env, 1)
+Q, stats = sarsa(env, 100)
 
 #plotting.plot_episode_stats(stats)
 
-fire_sim._renderFire(fire_sim.fire)
-
+'''
+fire_sim = fireSimulation(2)
 while not fire_sim.checkEmpty(fire_sim.fire):
+    print()
     fire_sim.iterFire(fire_sim.fire)
     fire_sim._renderFire(fire_sim.fire)
-    print()
+'''
 
