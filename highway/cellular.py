@@ -90,6 +90,26 @@ class Agent:
                 return
             self.cell = best
 
+    def goSpread(self, tot_burning_i, external_layer_fire=[]):
+        tot_bc = 0
+        highway = False
+        enclosed = True
+        temp = []
+        updated_external_layer_fire = []
+
+        temp.append(self.cell)
+        temp.extend(external_layer_fire)
+        for n in temp.cell.neighbours:
+            if n.on_fire is False and n.ff_blocked is False:
+                n.on_fire = True
+                updated_external_layer_fire.append(n)
+                tot_bc += 1
+                highway = n.highway
+                enclosed = False
+
+        tot_n_on_fire = tot_burning_i + tot_bc
+        return tot_n_on_fire, highway, enclosed, updated_external_layer_fire
+
 
 class World:
     def __init__(self, cell=None, width=None, height=None, directions=8, filename=None):
@@ -111,8 +131,15 @@ class World:
         self.width = width
         self.height = height
         self.image = None
-        self.eaten = None
-        self.fed = None
+
+        # fire fighter - highway problem
+        self.highway_on_fire = False
+
+        self.tot_highway_hit = None
+        self.tot_fire_enclosed = None
+
+        self.tot_burning_cells = 0
+
         self.reset()
         if filename is not None:
             self.load(filename)
@@ -190,7 +217,7 @@ class World:
             for i in range(min(fw, len(line))):
                 self.grid[starty + j][startx + i].load(line[i])
 
-    def update(self, fed=None, eaten=None):
+    def update(self, tot_highway_on_fire=None, tot_fire_enclosed=None):
         if hasattr(self.Cell, 'update'):
             for j, row in enumerate(self.grid):
                 for i, c in enumerate(row):
@@ -212,10 +239,13 @@ class World:
                 if oldCell != a.cell:
                     self.display.redrawCell(oldCell.x, oldCell.y)
                 self.display.redrawCell(a.cell.x, a.cell.y)
-        if (fed):
-            self.fed = fed
-        if (eaten):
-            self.eaten = eaten
+
+        if tot_highway_on_fire:
+            self.tot_highway_hit = tot_highway_on_fire
+
+        if tot_fire_enclosed:
+            self.tot_fire_enclosed = tot_fire_enclosed
+
         self.display.update()
         self.age += 1
 
@@ -617,10 +647,10 @@ class PygameDisplay:
 def makeTitle(world):
     text = 'age: %d' % world.age
     extra = []
-    if world.fed:
-        extra.append('fed=%d' % world.fed)
-    if world.eaten:
-        extra.append('eaten=%d' % world.eaten)
+    if world.fire_enclosed:
+        extra.append('fire_enclosed=%d' % world.fire_enclosed)
+    if world.highway_on_fire:
+        extra.append('highway_on_fire=%d' % world.highway_on_fire)
     if world.display.paused:
         extra.append('paused')
     if world.display.updateEvery != 1:
