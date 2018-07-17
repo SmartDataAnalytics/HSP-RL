@@ -4,10 +4,12 @@ import shelve
 import sys
 import pdb
 
-import cellular
+from highway import cellular
+from importlib import reload
+#import cellular
 reload(cellular)
 #import qlearn_mod_random as qlearn # to use the alternative exploration method
-import qlearn # to use standard exploration method
+from highway import qlearn # to use standard exploration method
 reload(qlearn)
 
 directions = 4
@@ -212,8 +214,8 @@ while world.age < endAge:
                                     epsilony[1] if world.age > epsilonx[1] else
                                     epsilonm*(world.age - epsilonx[0]) + epsilony[0])'''
 
-        print "{:d}, e: {:0.2f}, W: {:d}, L: {:d}" \
-            .format(world.age, ff.ai.epsilon, ff.highway_on_fire, ff.fire_enclosed)
+        print("{:d}, e: {:0.2f}, W: {:d}, L: {:d}".format(world.age, ff.ai.epsilon,
+                                                          ff.highway_on_fire, ff.fire_enclosed))
         # ff.highway_on_fire = 0
         # ff.fire_enclosed = 0
 
@@ -223,6 +225,6 @@ exit(0)
 
 while 1:
     world.update(fire.tot_burning_cells, fire.highway, ff.fire_enclosed)
-    print len(ff.ai.q)  # print the amount of state/action, reward elements stored
+    print(len(ff.ai.q))  # print the amount of state/action, reward elements stored
     bytes = sys.getsizeof(ff.ai.q)
-    print "Bytes: {:d} ({:d} KB)".format(bytes, bytes / 1024)
+    print("Bytes: {:d} ({:d} KB)".format(bytes, bytes / 1024))
