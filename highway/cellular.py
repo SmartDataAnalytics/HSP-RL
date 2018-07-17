@@ -177,7 +177,7 @@ class World:
         if not hasattr(self.Cell, 'save'):
             return
         if isinstance(f, type('')):
-            f = file(f, 'w')
+            f = open(f, 'w')
 
         total = ''
         for j in range(self.height):
@@ -195,7 +195,7 @@ class World:
         if not hasattr(self.Cell, 'load'):
             return
         if isinstance(f, type('')):
-            f = file(f)
+            f = open(f)
         lines = f.readlines()
         lines = [x.rstrip() for x in lines]
         fh = len(lines)
@@ -548,7 +548,7 @@ class PygameDisplay:
                     try:
                         self.screen.fill(c, (sx, sy, self.size, self.size))
                     except TypeError:
-                        print 'Error: invalid colour:', c
+                        print('Error: invalid colour:', c)
                 sx += self.size
             odd = not odd
             sy += self.size

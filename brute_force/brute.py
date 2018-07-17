@@ -1,4 +1,6 @@
 #import networkx as nx #-> https://networkx.github.io/documentation/networkx-1.7/tutorial/tutorial.html
+import math
+
 import matplotlib.pyplot as plt
 import sys
 import igraph
