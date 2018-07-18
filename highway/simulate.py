@@ -7,6 +7,8 @@ import numpy as np
 from highway import cellular
 from importlib import reload
 #import cellular
+from highway.definitions import *
+
 reload(cellular)
 #import qlearn_mod_random as qlearn # to use the alternative exploration method
 from highway import qlearn # to use standard exploration method
@@ -16,17 +18,19 @@ directions = 4
 
 lookdist = 2
 lookcells = []
+
 for i in range(-lookdist, lookdist+1):
     for j in range(-lookdist, lookdist+1):
         if (abs(i) + abs(j) <= lookdist) and (i != 0 or j != 0):
             lookcells.append((i, j))
+
 
 def getTotalBurningCells():
     b=0
     for w in world.width:
         for h in world.height:
             cell = world.getCell(w, h)
-            if cell.on_fire: b+=1
+            if cell._status == CELL_BURNING: b+=1
     return b
 
 def pickRandomLocation():
@@ -34,7 +38,7 @@ def pickRandomLocation():
         x = random.randrange(world.width)
         y = random.randrange(world.height)
         cell = world.getCell(x, y)
-        if cell._free and not len(cell.agents) > 0:
+        if cell._status == CELL_FREE and not len(cell.agents) > 0:
             return cell
 
 
@@ -50,12 +54,9 @@ def distance_fire_to_highway():
 
 
 class Cell(cellular.Cell):
-    _wall = False
-    _highway = False
-    _protected = False
-    _burning = False
-    _free = True
+    _status = CELL_FREE
 
+    '''
     def check_consistency(self):
 
         condition1 = self._free is True and (self._wall is False and self._highway is False and
@@ -70,6 +71,7 @@ class Cell(cellular.Cell):
         print(condition1, condition2, condition3)
         assert condition1 or (condition2 and condition3)
 
+   
     def set_free(self):
 
         if self._wall is True or self._highway is True:
@@ -90,34 +92,34 @@ class Cell(cellular.Cell):
         self._free = False
         self._burning = True
 
+    '''
     def colour(self):
-        if self._wall:
+
+        if self._status == CELL_WALL:
             return 'black'
-        elif self._highway:
+        elif self._status == CELL_HIGHWAY:
             return 'gray'
-        elif self._protected:
+        elif self._status == CELL_PROTECTED:
             return 'dark blue'
-        elif self._burning:
+        elif self._status == CELL_BURNING:
             return 'dark red'
-        elif self._free:
+        elif self._status == CELL_FREE:
             return 'white'
         else:
             Exception('colour err')
 
     def load(self, data):
-        self._free = False
+
         if data == 'X':
-            self._wall = True
+            self._status = CELL_WALL
         elif data == 'H':
-            self._highway = True
+            self._status = CELL_HIGHWAY
         elif data == 'B':
-            self._protected = True
+            self._status = CELL_PROTECTED
         elif data == 'F':
-            self._burning = True
-        elif data == '':
-            self._free = True
+            self._status = CELL_BURNING
         else:
-            Exception('char not recognized')
+            self._status = CELL_FREE
 
 '''
 class Fire(cellular.Agent):
@@ -162,7 +164,7 @@ class Flame(cellular.Agent):
         self.print_external_layer_on_fire()
 
         if len(self.external_layer_on_fire) == 0:
-            layer = [self.cell]
+            layer = [cell]
         else:
             layer = self.external_layer_on_fire
 
@@ -170,9 +172,9 @@ class Flame(cellular.Agent):
 
         # just keep the last layer catching fire
         self.external_layer_on_fire = _new_external_layer
-        for cell in self.external_layer_on_fire:
-            wc = world.getCell(cell.x, cell.y)
-            wc.set_burning()
+        for c in self.external_layer_on_fire:
+            wc = world.getCell(c.x, c.y)
+            wc._status == CELL_BURNING
         world.tot_burning_cells = _bc
 
         if _enclosed:
@@ -213,30 +215,33 @@ class Firefighter(cellular.Agent):
             if world.fire_enclosed:
                 reward = 75
 
-            world.highway_on_fire = False
-            world.fire_enclosed = False
 
             if self.lastState is not None:
                 self.ai.learn(self.lastState, self.lastAction, reward, state)
             self.lastState = None
 
+            world.highway_on_fire = False
+            world.fire_enclosed = False
             self.cell = pickRandomLocation()
             flame.cell = pickRandomLocation()
+            flame.tot_burning_cells = 1
+            flame.external_layer_on_fire = []
 
+            # revert the cells status
             for w in range(world.width):
                 for h in range(world.height):
                     c = world.getCell(w, h)
-                    if c._highway is False and c._wall is False:
-                        c.set_free()
+                    if c._status not in (CELL_HIGHWAY, CELL_WALL):
+                        c._status = CELL_FREE
 
             return
 
         else:
 
-            if self.cell.ff_blocked:
-                reward = 25
-            elif self.cell.highway:
+            if self.cell._status == CELL_PROTECTED:
                 reward = -25
+            elif self.cell._status == CELL_HIGHWAY:
+                reward = -50
 
             if self.lastState is not None:
                 self.ai.learn(self.lastState, self.lastAction, reward, state)
@@ -252,18 +257,7 @@ class Firefighter(cellular.Agent):
 
     def calcState(self):
         def cellvalue(cell):
-            if cell.wall:
-                return 1
-            elif cell.ff_blocked:
-                return 2
-            elif cell.on_fire:
-                return 3
-            elif cell.highway:
-                return 4
-            elif cell.free:
-                return 0
-            else:
-                Exception('cell value not existing')
+            return cell._status
 
         return tuple([cellvalue(self.world.getWrappedCell(self.cell.x + j, self.cell.y + i))
                       for i, j in lookcells])

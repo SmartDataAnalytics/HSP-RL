@@ -1,6 +1,8 @@
 import random
 import sys
 
+from highway.simulate import *
+
 neighbourSynonyms = ('neighbours', 'neighbors', 'neighbour', 'neighbor')
 
 
@@ -50,16 +52,12 @@ class Agent:
     # return True if successfully moved in that direction
     def goInDirection(self, dir):
         target = self.cell.neighbour[dir]
-        if getattr(target, 'wall', False):
+        if target._status in (CELL_WALL, CELL_PROTECTED, CELL_BURNING):
             return False
-        elif getattr(target, 'ff_blocked', False):
-            return False
-        elif getattr(target, 'on_fire', False):
-            return False
-        target.ff_blocked = True
-        self.cell = target
-
-        return True
+        else:
+            target._status = CELL_PROTECTED
+            self.cell = target
+            return True
 
     def goForward(self):
         self.goInDirection(self.dir)
@@ -104,11 +102,12 @@ class Agent:
 
         for cell in external_layer_fire:
             for n in cell.neighbours:
-                n.check_consistency()
+                #n.check_consistency()
                 if touch_highway is False:
-                    touch_highway = n._highway
-                if n._free:
-                    n.set_burning()
+                    touch_highway = (n._status == CELL_HIGHWAY)
+                if n._status == CELL_FREE:
+                    #n.set_burning()
+                    n._status = CELL_BURNING
                     updated_external_layer_fire.append(n)
                     tot_bc += 1
                     enclosed = False
