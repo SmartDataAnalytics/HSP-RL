@@ -104,9 +104,11 @@ class Agent:
 
         for cell in external_layer_fire:
             for n in cell.neighbours:
-                if n.on_fire is False and n.ff_blocked is False and n.wall is False:
-                    touch_highway = n.highway
-                    n.on_fire = True
+                n.check_consistency()
+                if touch_highway is False:
+                    touch_highway = n._highway
+                if n._free:
+                    n.set_burning()
                     updated_external_layer_fire.append(n)
                     tot_bc += 1
                     enclosed = False

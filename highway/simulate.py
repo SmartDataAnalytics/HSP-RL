@@ -3,7 +3,7 @@ import random
 import shelve
 import sys
 import pdb
-
+import numpy as np
 from highway import cellular
 from importlib import reload
 #import cellular
@@ -34,7 +34,7 @@ def pickRandomLocation():
         x = random.randrange(world.width)
         y = random.randrange(world.height)
         cell = world.getCell(x, y)
-        if not (cell.wall or cell.highway or len(cell.agents) > 0):
+        if cell._free and not len(cell.agents) > 0:
             return cell
 
 
@@ -50,37 +50,74 @@ def distance_fire_to_highway():
 
 
 class Cell(cellular.Cell):
-    wall = False
-    highway = False
-    ff_blocked = False
-    on_fire = False
+    _wall = False
+    _highway = False
+    _protected = False
+    _burning = False
+    _free = True
+
+    def check_consistency(self):
+
+        condition1 = self._free is True and (self._wall is False and self._highway is False and
+                               self._protected is False and self._burning is False)
+
+        condition2 = self._free is False and (self._wall is True or self._highway is True or
+                                        self._protected is True or self._burning is True)
+
+        values = [self._wall, self._highway, self._protected, self._burning]
+        condition3 = len(np.count_nonzero([values], axis=0)) == 1
+
+        print(condition1, condition2, condition3)
+        assert condition1 or (condition2 and condition3)
+
+    def set_free(self):
+
+        if self._wall is True or self._highway is True:
+            raise Exception('can not free a highway or wall!')
+
+        self._free = True
+
+        self._wall = False
+        self._highway = False
+        self._protected = False
+        self._burning = False
+
+    def set_protected(self):
+        self._free = False
+        self._protected = True
+
+    def set_burning(self):
+        self._free = False
+        self._burning = True
 
     def colour(self):
-        if self.wall:
+        if self._wall:
             return 'black'
-        elif self.highway:
+        elif self._highway:
             return 'gray'
-        elif self.ff_blocked:
+        elif self._protected:
             return 'dark blue'
-        elif self.on_fire:
+        elif self._burning:
             return 'dark red'
-        else:
+        elif self._free:
             return 'white'
+        else:
+            Exception('colour err')
 
     def load(self, data):
+        self._free = False
         if data == 'X':
-            self.wall = True
+            self._wall = True
         elif data == 'H':
-            self.highway = True
+            self._highway = True
         elif data == 'B':
-            self.ff_blocked = True
+            self._protected = True
         elif data == 'F':
-            self.on_fire = True
+            self._burning = True
+        elif data == '':
+            self._free = True
         else:
-            self.wall = False
-            self.highway = False
-            self.ff_blocked = False
-            self.on_fire = False
+            Exception('char not recognized')
 
 '''
 class Fire(cellular.Agent):
@@ -135,7 +172,7 @@ class Flame(cellular.Agent):
         self.external_layer_on_fire = _new_external_layer
         for cell in self.external_layer_on_fire:
             wc = world.getCell(cell.x, cell.y)
-            wc.on_fire = True
+            wc.set_burning()
         world.tot_burning_cells = _bc
 
         if _enclosed:
@@ -185,6 +222,13 @@ class Firefighter(cellular.Agent):
 
             self.cell = pickRandomLocation()
             flame.cell = pickRandomLocation()
+
+            for w in range(world.width):
+                for h in range(world.height):
+                    c = world.getCell(w, h)
+                    if c._highway is False and c._wall is False:
+                        c.set_free()
+
             return
 
         else:
@@ -216,11 +260,14 @@ class Firefighter(cellular.Agent):
                 return 3
             elif cell.highway:
                 return 4
-            else:
+            elif cell.free:
                 return 0
+            else:
+                Exception('cell value not existing')
 
         return tuple([cellvalue(self.world.getWrappedCell(self.cell.x + j, self.cell.y + i))
-                      for i,j in lookcells])
+                      for i, j in lookcells])
+
 
 flame = Flame()
 ff = Firefighter()
