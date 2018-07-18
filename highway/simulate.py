@@ -34,7 +34,7 @@ def pickRandomLocation():
         x = random.randrange(world.width)
         y = random.randrange(world.height)
         cell = world.getCell(x, y)
-        if not (cell.wall or len(cell.agents) > 0):
+        if not (cell.wall or cell.highway or len(cell.agents) > 0):
             return cell
 
 
@@ -59,11 +59,11 @@ class Cell(cellular.Cell):
         if self.wall:
             return 'black'
         elif self.highway:
-            return 'blue'
+            return 'gray'
         elif self.ff_blocked:
-            return 'grey'
+            return 'dark blue'
         elif self.on_fire:
-            return 'red'
+            return 'dark red'
         else:
             return 'white'
 
@@ -110,8 +110,8 @@ class FF_Dummy(cellular.Agent):
 '''
 
 
-class Fire(cellular.Agent):
-    colour = 'orange'
+class Flame(cellular.Agent):
+    colour = 'light coral'
 
     def __init__(self):
         self.tot_highway = 0
@@ -121,19 +121,39 @@ class Fire(cellular.Agent):
 
     def update(self):
         cell = self.cell
-        _bc, _highway, _enclosed, _new_external_layer = \
-            self.goSpread(fire.tot_burning_cells, fire.external_layer_on_fire)
+
+        self.print_external_layer_on_fire()
+
+        if len(self.external_layer_on_fire) == 0:
+            layer = [self.cell]
+        else:
+            layer = self.external_layer_on_fire
+
+        _bc, _highway, _enclosed, _new_external_layer = self.goSpread(flame.tot_burning_cells, layer)
+
+        # just keep the last layer catching fire
+        self.external_layer_on_fire = _new_external_layer
+        for cell in self.external_layer_on_fire:
+            wc = world.getCell(cell.x, cell.y)
+            wc.on_fire = True
+        world.tot_burning_cells = _bc
 
         if _enclosed:
             self.tot_enclosed += 1
         if _highway:
+            world.highway_on_fire = True
             self.tot_highway += 1
-        self.tot_burning_cells += _bc
-        fire.external_layer_on_fire = _new_external_layer
+        self.tot_burning_cells = _bc
+
+    def print_external_layer_on_fire(self):
+        print('------')
+        for c in self.external_layer_on_fire:
+            print(c.x, c.y)
+        print('------')
 
 
 class Firefighter(cellular.Agent):
-    colour = 'gray'
+    colour = 'light blue'
 
     def __init__(self):
         self.ai = None
@@ -147,28 +167,44 @@ class Firefighter(cellular.Agent):
         # asign a reward of -1 by default
         reward = -1
 
-        if world.highway_on_fire is True or fire.tot_burning_cells == world.tot_burning_cells:
-            if world.highway_on_fire is True:
-                self.highway_on_fire += 1
+        # highway on fire or fire enclosed
+        # -- end of game
+        if world.highway_on_fire or world.fire_enclosed:
+
+            if world.highway_on_fire:
                 reward = -100
-            elif fire.tot_burning_cells == world.total_burning_cells:
-                self.fire_enclosed += 1
-                reward = 50
+            if world.fire_enclosed:
+                reward = 75
+
+            world.highway_on_fire = False
+            world.fire_enclosed = False
 
             if self.lastState is not None:
                 self.ai.learn(self.lastState, self.lastAction, reward, state)
             self.lastState = None
+
             self.cell = pickRandomLocation()
-            ff.cell = pickRandomLocation()
+            flame.cell = pickRandomLocation()
             return
 
-        # Choose a new action and execute it
-        state = self.calcState()
-        print(state)
-        action = self.ai.chooseAction(state)
-        self.lastState = state
-        self.lastAction = action
-        self.goInDirection(action)
+        else:
+
+            if self.cell.ff_blocked:
+                reward = 25
+            elif self.cell.highway:
+                reward = -25
+
+            if self.lastState is not None:
+                self.ai.learn(self.lastState, self.lastAction, reward, state)
+
+            # Choose a new action and execute it
+            state = self.calcState()
+            print(state)
+            action = self.ai.chooseAction(state)
+            self.lastState = state
+            self.lastAction = action
+
+            self.goInDirection(action)
 
     def calcState(self):
         def cellvalue(cell):
@@ -186,15 +222,14 @@ class Firefighter(cellular.Agent):
         return tuple([cellvalue(self.world.getWrappedCell(self.cell.x + j, self.cell.y + i))
                       for i,j in lookcells])
 
-
+flame = Flame()
 ff = Firefighter()
-fire = Fire()
 
 world = cellular.World(Cell, directions=directions, filename='../worlds/ff_highway.txt')
 world.age = 0
 
+world.addAgent(flame, cell=pickRandomLocation())
 world.addAgent(ff, cell=pickRandomLocation())
-world.addAgent(fire, cell=pickRandomLocation())
 
 epsilonx = (0, 100000)
 epsilony = (0.1, 0)
@@ -207,7 +242,8 @@ world.display.delay = 1
 
 # some initial learning
 while world.age < endAge:
-    world.update(fire.tot_burning_cells, fire.tot_enclosed)
+    world.update(flame.tot_highway, flame.tot_enclosed)
+    world.display.redraw()
 
     if world.age % 100 == 0:
         '''ff.ai.epsilon = (epsilony[0] if world.age < epsilonx[0] else
@@ -224,7 +260,7 @@ print(ff.ai.q)
 exit(0)
 
 while 1:
-    world.update(fire.tot_burning_cells, fire.highway, ff.fire_enclosed)
+    world.update(flame.tot_burning_cells, flame.highway, ff.fire_enclosed)
     print(len(ff.ai.q))  # print the amount of state/action, reward elements stored
     bytes = sys.getsizeof(ff.ai.q)
     print("Bytes: {:d} ({:d} KB)".format(bytes, bytes / 1024))

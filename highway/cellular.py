@@ -45,15 +45,20 @@ class Agent:
         self.turn(1)
 
     def turnAround(self):
-        self.turn(self.world.directions / 2)
+        self.turn(self.world.directions // 2)
 
     # return True if successfully moved in that direction
     def goInDirection(self, dir):
         target = self.cell.neighbour[dir]
         if getattr(target, 'wall', False):
-            #print "hit a wall"
             return False
+        elif getattr(target, 'ff_blocked', False):
+            return False
+        elif getattr(target, 'on_fire', False):
+            return False
+        target.ff_blocked = True
         self.cell = target
+
         return True
 
     def goForward(self):
@@ -92,23 +97,22 @@ class Agent:
 
     def goSpread(self, tot_burning_i, external_layer_fire=[]):
         tot_bc = 0
-        highway = False
+        touch_highway = False
         enclosed = True
         temp = []
         updated_external_layer_fire = []
 
-        temp.append(self.cell)
-        temp.extend(external_layer_fire)
-        for n in temp.cell.neighbours:
-            if n.on_fire is False and n.ff_blocked is False:
-                n.on_fire = True
-                updated_external_layer_fire.append(n)
-                tot_bc += 1
-                highway = n.highway
-                enclosed = False
+        for cell in external_layer_fire:
+            for n in cell.neighbours:
+                if n.on_fire is False and n.ff_blocked is False and n.wall is False:
+                    touch_highway = n.highway
+                    n.on_fire = True
+                    updated_external_layer_fire.append(n)
+                    tot_bc += 1
+                    enclosed = False
 
         tot_n_on_fire = tot_burning_i + tot_bc
-        return tot_n_on_fire, highway, enclosed, updated_external_layer_fire
+        return tot_n_on_fire, touch_highway, enclosed, updated_external_layer_fire
 
 
 class World:
@@ -119,7 +123,7 @@ class World:
         self.display = makeDisplay(self)
         self.directions = directions
         if filename is not None:
-            data = file(filename).readlines()
+            data = open(filename).readlines()
             if height is None:
                 height = len(data)
             if width is None:
@@ -134,6 +138,7 @@ class World:
 
         # fire fighter - highway problem
         self.highway_on_fire = False
+        self.fire_enclosed = False
 
         self.tot_highway_hit = None
         self.tot_fire_enclosed = None
@@ -204,12 +209,12 @@ class World:
             fh = self.height
             starty = 0
         else:
-            starty = (self.height - fh) / 2
+            starty = (self.height - fh) // 2
         if fw > self.width:
             fw = self.width
             startx = 0
         else:
-            startx = (self.width - fw) / 2
+            startx = (self.width - fw) // 2
 
         self.reset()
         for j in range(fh):
@@ -217,7 +222,7 @@ class World:
             for i in range(min(fw, len(line))):
                 self.grid[starty + j][startx + i].load(line[i])
 
-    def update(self, tot_highway_on_fire=None, tot_fire_enclosed=None):
+    def update(self, highway_on_fire=0, fire_enclosed=0):
         if hasattr(self.Cell, 'update'):
             for j, row in enumerate(self.grid):
                 for i, c in enumerate(row):
@@ -240,11 +245,8 @@ class World:
                     self.display.redrawCell(oldCell.x, oldCell.y)
                 self.display.redrawCell(a.cell.x, a.cell.y)
 
-        if tot_highway_on_fire:
-            self.tot_highway_hit = tot_highway_on_fire
-
-        if tot_fire_enclosed:
-            self.tot_fire_enclosed = tot_fire_enclosed
+        self.tot_highway_hit = highway_on_fire
+        self.tot_fire_enclosed = fire_enclosed
 
         self.display.update()
         self.age += 1
@@ -373,8 +375,8 @@ class TkinterDisplay:
     def onConfigure(self, event):
         if event.width != self.frameWidth or event.height != self.frameHeight:
             oldSize = self.size
-            scalew = event.width / self.world.width
-            scaleh = event.height / self.world.height
+            scalew = event.width // self.world.width
+            scaleh = event.height // self.world.height
             self.size = min(scalew, scaleh)
             if self.size < 1:
                 self.size = 1
@@ -387,7 +389,7 @@ class TkinterDisplay:
 
     def onPageDown(self, event):
         if self.updateEvery > 1:
-            self.updateEvery /= 2
+            self.updateEvery //= 2
         else:
             self.delay += 1
         if self.delay > 10:
@@ -418,16 +420,16 @@ class TkinterDisplay:
         iw = self.world.width * self.size
         ih = self.world.height * self.size
         if hexgrid:
-            iw += self.size / 2
+            iw += self.size // 2
 
-        f = file('temp.ppm', 'wb')
+        f = open('temp.ppm', 'wb')
         f.write('P6\n%d %d\n255\n' % (iw, ih))
 
         odd = False
         for row in self.world.grid:
             line = cStringIO.StringIO()
             if hexgrid and odd:
-                line.write(self.getBackground() * (self.size / 2))
+                line.write(self.getBackground() * (self.size // 2))
             for cell in row:
                 if len(cell.agents) > 0:
                     c = self.getDataColour(cell.agents[-1])
@@ -436,7 +438,7 @@ class TkinterDisplay:
 
                 line.write(c * self.size)
             if hexgrid and not odd:
-                line.write(self.getBackground() * (self.size / 2))
+                line.write(self.getBackground() * (self.size // 2))
             odd = not odd
 
             f.write(line.getvalue() * self.size)
@@ -453,7 +455,7 @@ class TkinterDisplay:
         sx = x * self.size
         sy = y * self.size
         if y % 2 == 1 and self.world.directions == 6:
-            sx += self.size / 2
+            sx += self.size // 2
 
         cell = self.world.grid[y][x]
         if len(cell.agents) > 0:
@@ -516,7 +518,7 @@ class PygameDisplay:
         w = self.world.width * size
         h = self.world.height * size
         if self.world.directions == 6:
-            w += size / 2
+            w += size // 2
         if PygameDisplay.screen is None or PygameDisplay.screen.get_width() != w or PygameDisplay.screen.get_height() != h:
             PygameDisplay.screen = pygame.display.set_mode(
                 (w, h), pygame.RESIZABLE, 32)
@@ -530,15 +532,15 @@ class PygameDisplay:
         self.screen.fill(self.defaultColour)
         hexgrid = self.world.directions == 6
         self.offsety = (
-            self.screen.get_height() - self.world.height * self.size) / 2
+            self.screen.get_height() - self.world.height * self.size) // 2
         self.offsetx = (
-            self.screen.get_width() - self.world.width * self.size) / 2
+            self.screen.get_width() - self.world.width * self.size) // 2
         sy = self.offsety
         odd = False
         for row in self.world.grid:
             sx = self.offsetx
             if hexgrid and odd:
-                sx += self.size / 2
+                sx += self.size // 2
             for cell in row:
                 if len(cell.agents) > 0:
                     c = self.getColour(cell.agents[0])
@@ -559,7 +561,7 @@ class PygameDisplay:
         sx = x * self.size + self.offsetx
         sy = y * self.size + self.offsety
         if y % 2 == 1 and self.world.directions == 6:
-            sx += self.size / 2
+            sx += self.size // 2
 
         cell = self.world.grid[y][x]
         if len(cell.agents) > 0:
@@ -619,8 +621,8 @@ class PygameDisplay:
             return
         pygame.display.set_mode(event.size, pygame.RESIZABLE, 32)
         oldSize = self.size
-        scalew = event.size[0] / self.world.width
-        scaleh = event.size[1] / self.world.height
+        scalew = event.size[0] // self.world.width
+        scaleh = event.size[1] // self.world.height
         self.size = min(scalew, scaleh)
         if self.size < 1:
             self.size = 1
@@ -647,10 +649,10 @@ class PygameDisplay:
 def makeTitle(world):
     text = 'age: %d' % world.age
     extra = []
-    if world.fire_enclosed:
-        extra.append('fire_enclosed=%d' % world.fire_enclosed)
-    if world.highway_on_fire:
-        extra.append('highway_on_fire=%d' % world.highway_on_fire)
+    if world.tot_fire_enclosed:
+        extra.append('fire_enclosed=%d' % world.tot_fire_enclosed)
+    if world.tot_highway_hit:
+        extra.append('highway_on_fire=%d' % world.tot_highway_hit)
     if world.display.paused:
         extra.append('paused')
     if world.display.updateEvery != 1:
@@ -663,12 +665,15 @@ def makeTitle(world):
     return text
 
 try:
+    print('PygameDisplay')
     import pygame
     Display = PygameDisplay
 except:
     try:
+        print('Tkinter')
         import Tkinter
         import cStringIO
         Display = TkinterDisplay
     except:
+        print('DummyDisplay')
         Display = DummyDisplay

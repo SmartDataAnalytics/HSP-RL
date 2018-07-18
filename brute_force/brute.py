@@ -226,7 +226,7 @@ def simulate(n, g, budget, burns, B_cells, folder_sim):
     print_state(0, q_burning, q_risk, q_protected, budget_bef, budget_i_tot, budget_i_floor, budget_after)
 
     # plot state 0
-    plot(g, **visual_style, target=folder_sim  + 'out0.png')
+    plt.plot(g, **visual_style, target=folder_sim + 'out0.png')
 
     if q_risk.empty() is True:
         raise Exception('this should not occur')
@@ -240,7 +240,7 @@ def simulate(n, g, budget, burns, B_cells, folder_sim):
 
     iter = 1
     # plot state 1
-    plot(g, **visual_style, target=folder_sim + 'out1.png')
+    plt.plot(g, **visual_style, target=folder_sim + 'out1.png')
 
     while not q_risk.empty():
         # burns and update risks
@@ -279,7 +279,7 @@ def simulate(n, g, budget, burns, B_cells, folder_sim):
                 q_protected.put(irisk)
 
         print_state(iter, q_burning, q_risk, q_protected, budget_bef, budget_i_tot, budget_i_floor, budget_after)
-        plot(g, **visual_style, target=folder_sim + 'out' + str(iter) + '.png')
+        plt.plot(g, **visual_style, target=folder_sim + 'out' + str(iter) + '.png')
 
 
     tot_untouched = len(list(v for v in g.vs["status"] if (v == UNTOUCHED_STATUS)))
