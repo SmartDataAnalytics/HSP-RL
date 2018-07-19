@@ -33,10 +33,16 @@ def getTotalBurningCells():
             if cell._status == CELL_BURNING: b+=1
     return b
 
-def pickRandomLocation():
+def pickRandomLocation(which_half=None):
     while 1:
         x = random.randrange(world.width)
-        y = random.randrange(world.height)
+        if which_half == 1:
+            y = random.randrange(0, world.height // 2)
+        elif which_half == -1:
+            y = random.randrange((world.height // 2) + 1, world.height)
+        else:
+            raise Exception('which_half value not valid')
+
         cell = world.getCell(x, y)
         if cell._status == CELL_FREE and not len(cell.agents) > 0:
             return cell
@@ -183,7 +189,7 @@ class Flame(cellular.Agent):
     def update(self):
         cell = self.cell
 
-        self.print_external_layer_on_fire()
+        #self.print_external_layer_on_fire()
 
         if len(self.external_layer_on_fire) == 0:
             layer = [cell]
@@ -207,10 +213,8 @@ class Flame(cellular.Agent):
         self.tot_burning_cells = _bc
 
     def print_external_layer_on_fire(self):
-        print('------')
         for c in self.external_layer_on_fire:
             print(c.x, c.y)
-        print('------')
 
 
 class Firefighter(cellular.Agent):
@@ -226,7 +230,10 @@ class Firefighter(cellular.Agent):
         # calculate the state of the surrounding cells
         state = self.calcState()
         # asign a reward of -1 by default
-        reward = -1
+        v = 10 - flame.tot_burning_cells
+        reward = np.log(abs(v)) * -1
+        print('-- reward: ', reward, ' -- external layer', len(flame.external_layer_on_fire))
+
 
         # highway on fire or fire enclosed
         # -- end of game
@@ -244,8 +251,8 @@ class Firefighter(cellular.Agent):
 
             world.is_highway_on_fire = False
             world.is_fire_enclosed = False
-            self.cell = pickRandomLocation()
-            flame.cell = pickRandomLocation()
+            self.cell = pickRandomLocation(1)
+            flame.cell = pickRandomLocation(-1)
             flame.tot_burning_cells = 1
             flame.external_layer_on_fire = []
 
@@ -257,21 +264,33 @@ class Firefighter(cellular.Agent):
         else:
 
             if self.cell._status == CELL_PROTECTED:
-                reward = -25
-            elif self.cell._status == CELL_HIGHWAY:
                 reward = -50
+            elif self.cell._status == CELL_HIGHWAY:
+                reward = -100
+            elif self.cell._status == CELL_BURNING:
+                reward = 50
 
             if self.lastState is not None:
                 self.ai.learn(self.lastState, self.lastAction, reward, state)
 
             # Choose a new action and execute it
             state = self.calcState()
-            print(state)
+            #print(state)
             action = self.ai.chooseAction(state)
             self.lastState = state
             self.lastAction = action
 
-            self.goInDirection(action)
+            sucess, last_status, last_cell_x, last_cell_y = self.goInDirection(action)
+            if sucess and last_status == CELL_BURNING:
+                flame.tot_burning_cells -= 1
+                # removes from last layer, in case it is there
+                for i in range(len(flame.external_layer_on_fire)):
+                    if flame.external_layer_on_fire[i].x == last_cell_x \
+                            and flame.external_layer_on_fire[i].y == last_cell_y:
+                        flame.external_layer_on_fire.pop(i)
+                        break
+
+
 
     def calcState(self):
         def cellvalue(cell):
@@ -287,8 +306,8 @@ ff = Firefighter()
 world = cellular.World(Cell, directions=directions, filename='../worlds/ff_highway.txt')
 world.age = 0
 
-world.addAgent(flame, cell=pickRandomLocation())
-world.addAgent(ff, cell=pickRandomLocation())
+world.addAgent(flame, cell=pickRandomLocation(-1))
+world.addAgent(ff, cell=pickRandomLocation(1))
 
 epsilonx = (0, 100000)
 epsilony = (0.1, 0)
@@ -300,7 +319,7 @@ highway_X_Y = _get_highway_meta_coordinates()
 
 world.set_highway_meta_coordinates(highway_X_Y)
 
-world.display.activate(size=30)
+world.display.activate(size=50)
 world.display.delay = 1
 
 # some initial learning

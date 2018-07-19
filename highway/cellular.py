@@ -2,6 +2,7 @@ import random
 import sys
 
 from highway.simulate import *
+from copy import copy, deepcopy
 
 neighbourSynonyms = ('neighbours', 'neighbors', 'neighbour', 'neighbor')
 
@@ -52,12 +53,13 @@ class Agent:
     # return True if successfully moved in that direction
     def goInDirection(self, dir):
         target = self.cell.neighbour[dir]
-        if target._status in (CELL_WALL, CELL_PROTECTED, CELL_BURNING):
-            return False
+        if target._status == CELL_WALL:
+            return False, None, None, None
         else:
+            last_status = copy(target._status)
             target._status = CELL_PROTECTED
             self.cell = target
-            return True
+            return True, last_status, target.x, target.y
 
     def goForward(self):
         self.goInDirection(self.dir)
