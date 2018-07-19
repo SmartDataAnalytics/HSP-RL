@@ -53,6 +53,28 @@ def distance_fire_to_highway():
     return highway_y - closest_burning_y
 
 
+def _get_highway_meta_coordinates():
+    highway_coordinates = []
+    for x in range(world.width):
+        for y in range(world.height):
+            cell = world.getCell(x, y)
+            if cell._status == CELL_HIGHWAY:
+                highway_coordinates.append('{}|{}'.format(x, y))
+    assert len(highway_coordinates) > 0
+    return highway_coordinates
+
+
+def _revert_the_enviroment_status():
+    for x in range(world.width):
+        for y in range(world.height):
+            c = world.getCell(x, y)
+            metacoordinate = '{}|{}'.format(x, y)
+            if metacoordinate in world.highway_meta_coordinates:
+                c._status = CELL_HIGHWAY
+            elif c._status not in (CELL_HIGHWAY, CELL_WALL):
+                c._status = CELL_FREE
+
+
 class Cell(cellular.Cell):
     _status = CELL_FREE
 
@@ -168,7 +190,7 @@ class Flame(cellular.Agent):
         else:
             layer = self.external_layer_on_fire
 
-        _bc, _highway, _enclosed, _new_external_layer = self.goSpread(flame.tot_burning_cells, layer)
+        _bc, _highway_hit, _enclosed, _new_external_layer = self.goSpread(flame.tot_burning_cells, layer)
 
         # just keep the last layer catching fire
         self.external_layer_on_fire = _new_external_layer
@@ -179,8 +201,8 @@ class Flame(cellular.Agent):
 
         if _enclosed:
             self.tot_enclosed += 1
-        if _highway:
-            world.highway_on_fire = True
+        if _highway_hit:
+            world.is_highway_on_fire = True
             self.tot_highway += 1
         self.tot_burning_cells = _bc
 
@@ -208,11 +230,11 @@ class Firefighter(cellular.Agent):
 
         # highway on fire or fire enclosed
         # -- end of game
-        if world.highway_on_fire or world.fire_enclosed:
+        if world.is_highway_on_fire or world.is_fire_enclosed:
 
-            if world.highway_on_fire:
+            if world.is_highway_on_fire:
                 reward = -100
-            if world.fire_enclosed:
+            if world.is_fire_enclosed:
                 reward = 75
 
 
@@ -220,19 +242,15 @@ class Firefighter(cellular.Agent):
                 self.ai.learn(self.lastState, self.lastAction, reward, state)
             self.lastState = None
 
-            world.highway_on_fire = False
-            world.fire_enclosed = False
+            world.is_highway_on_fire = False
+            world.is_fire_enclosed = False
             self.cell = pickRandomLocation()
             flame.cell = pickRandomLocation()
             flame.tot_burning_cells = 1
             flame.external_layer_on_fire = []
 
             # revert the cells status
-            for w in range(world.width):
-                for h in range(world.height):
-                    c = world.getCell(w, h)
-                    if c._status not in (CELL_HIGHWAY, CELL_WALL):
-                        c._status = CELL_FREE
+            _revert_the_enviroment_status()
 
             return
 
@@ -278,6 +296,10 @@ epsilonm = (epsilony[1] - epsilony[0]) / (epsilonx[1] - epsilonx[0])
 
 endAge = world.age + 10000
 
+highway_X_Y = _get_highway_meta_coordinates()
+
+world.set_highway_meta_coordinates(highway_X_Y)
+
 world.display.activate(size=30)
 world.display.delay = 1
 
@@ -292,7 +314,7 @@ while world.age < endAge:
                                     epsilonm*(world.age - epsilonx[0]) + epsilony[0])'''
 
         print("{:d}, e: {:0.2f}, W: {:d}, L: {:d}".format(world.age, ff.ai.epsilon,
-                                                          ff.highway_on_fire, ff.fire_enclosed))
+                                                          flame.tot_highway, flame.tot_enclosed))
         # ff.highway_on_fire = 0
         # ff.fire_enclosed = 0
 
