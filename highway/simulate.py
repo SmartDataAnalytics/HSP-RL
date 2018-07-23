@@ -216,6 +216,14 @@ class Flame(cellular.Agent):
         for c in self.external_layer_on_fire:
             print(c.x, c.y)
 
+    def get_distance_to_highway(self):
+        max_y = int(world.highway_meta_coordinates[0][0])
+        max_y_fire = -1
+        for c in self.external_layer_on_fire:
+            if max_y_fire < c.y:
+                max_y_fire = c.y
+        return abs(max_y - max_y_fire)
+
 
 class Firefighter(cellular.Agent):
     colour = 'light blue'
@@ -229,21 +237,16 @@ class Firefighter(cellular.Agent):
     def update(self):
         # calculate the state of the surrounding cells
         state = self.calcState()
-        # asign a reward of -1 by default
-        v = 10 - flame.tot_burning_cells
-        reward = np.log(abs(v)) * -1
-        print('-- reward: ', reward, ' -- external layer', len(flame.external_layer_on_fire))
-
 
         # highway on fire or fire enclosed
         # -- end of game
+        reward = -1
         if world.is_highway_on_fire or world.is_fire_enclosed:
 
             if world.is_highway_on_fire:
                 reward = -100
             if world.is_fire_enclosed:
                 reward = 75
-
 
             if self.lastState is not None:
                 self.ai.learn(self.lastState, self.lastAction, reward, state)
@@ -262,13 +265,27 @@ class Firefighter(cellular.Agent):
             return
 
         else:
-
+            s=''
             if self.cell._status == CELL_PROTECTED:
                 reward = -50
+                s='protected'
             elif self.cell._status == CELL_HIGHWAY:
                 reward = -100
+                s='highway'
             elif self.cell._status == CELL_BURNING:
+                reward = 25
+                s='burning'
+            elif self.cell._status == CELL_FREE:
                 reward = 50
+                s='free'
+            else:
+                d = flame.get_distance_to_highway()
+                b = flame.tot_burning_cells
+                v = d * b
+                reward = np.log(abs(v)) * -1
+                s='function'
+
+            print(':: reward=%s :: external layer=%s :: type=%s' % (reward, len(flame.external_layer_on_fire),s))
 
             if self.lastState is not None:
                 self.ai.learn(self.lastState, self.lastAction, reward, state)
