@@ -3,3 +3,5 @@ CELL_HIGHWAY = 1
 CELL_WALL = 2
 CELL_PROTECTED = 3
 CELL_BURNING = 4
+
+labels = {CELL_FREE: 'free', CELL_HIGHWAY: 'highway', CELL_WALL: 'wall', CELL_PROTECTED: 'protected', CELL_BURNING: 'burning'}

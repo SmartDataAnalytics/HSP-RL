@@ -154,6 +154,16 @@ class World:
         if filename is not None:
             self.load(filename)
 
+    def print_world_status_cells(self):
+        counts = {CELL_FREE: 0, CELL_HIGHWAY: 0, CELL_WALL: 0, CELL_PROTECTED: 0, CELL_BURNING: 0}
+        out=''
+        for w in range(self.width):
+            for h in range(self.height):
+                cell = self.getCell(w, h)
+                counts[cell._status] = counts.get(cell._status) + 1
+        for k, v in counts.items():
+            out += labels.get(k) + ': ' + str(v) + ' '
+        print(out)
 
     def set_highway_meta_coordinates(self, coordinates):
         self.highway_meta_coordinates = coordinates
@@ -257,6 +267,7 @@ class World:
         self.score_highway_hit = score_highway_on_fire
         self.score_fire_enclosed = score_fire_enclosed
 
+        self.display.redraw()
         self.display.update()
         self.age += 1
 

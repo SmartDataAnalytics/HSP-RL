@@ -237,6 +237,7 @@ class Firefighter(cellular.Agent):
     def update(self):
         # calculate the state of the surrounding cells
         state = self.calcState()
+        print(state)
 
         # highway on fire or fire enclosed
         # -- end of game
@@ -292,7 +293,7 @@ class Firefighter(cellular.Agent):
 
             # Choose a new action and execute it
             state = self.calcState()
-            #print(state)
+            print(state)
             action = self.ai.chooseAction(state)
             self.lastState = state
             self.lastAction = action
@@ -338,21 +339,24 @@ world.set_highway_meta_coordinates(highway_X_Y)
 
 world.display.activate(size=50)
 world.display.delay = 1
-
+world.print_world_status_cells()
 # some initial learning
 while world.age < endAge:
+    #world.display.redraw()
     world.update(flame.tot_highway, flame.tot_enclosed)
-    world.display.redraw()
+    world.print_world_status_cells()
 
+    '''
     if world.age % 100 == 0:
-        '''ff.ai.epsilon = (epsilony[0] if world.age < epsilonx[0] else
+        ff.ai.epsilon = (epsilony[0] if world.age < epsilonx[0] else
                                     epsilony[1] if world.age > epsilonx[1] else
-                                    epsilonm*(world.age - epsilonx[0]) + epsilony[0])'''
+                                    epsilonm*(world.age - epsilonx[0]) + epsilony[0])
 
         print("{:d}, e: {:0.2f}, W: {:d}, L: {:d}".format(world.age, ff.ai.epsilon,
                                                           flame.tot_highway, flame.tot_enclosed))
         # ff.highway_on_fire = 0
         # ff.fire_enclosed = 0
+    '''
 
 print(ff.ai.q)
 
