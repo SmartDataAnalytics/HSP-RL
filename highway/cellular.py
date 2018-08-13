@@ -1,6 +1,7 @@
 import random
 import sys
 
+import highway
 from highway.simulate import *
 from copy import copy, deepcopy
 
@@ -18,6 +19,14 @@ class Cell:
             return ns
         raise AttributeError(key)
 
+    #def update(self):
+    #    from highway.simulate import Firefighter
+    #    current_status = self._status
+    #
+    #    if len(self.agents) > 0:
+    #
+    #        if isinstance(self.agents[0], Firefighter):
+    #            self._status = CELL_PROTECTED
 
 class Agent:
     def __setattr__(self, key, val):
@@ -144,11 +153,16 @@ class World:
         self.is_highway_on_fire = False
         self.is_fire_enclosed = False
 
-        self.score_highway_hit = None
-        self.score_fire_enclosed = None
+        self.fire = None
+        self.enclosed = None
 
         self.tot_burning_cells = 0
         self.highway_meta_coordinates = None
+
+        self.highway_min_x = 999999999
+        self.highway_max_x = 0
+        self.highway_min_y = 999999999
+        self.highway_max_y = 0
 
         self.reset()
         if filename is not None:
@@ -241,7 +255,7 @@ class World:
             for i in range(min(fw, len(line))):
                 self.grid[starty + j][startx + i].load(line[i])
 
-    def update(self, score_highway_on_fire=0, score_fire_enclosed=0):
+    def update(self, fire=0, enclosed=0):
         if hasattr(self.Cell, 'update'):
             for j, row in enumerate(self.grid):
                 for i, c in enumerate(row):
@@ -264,10 +278,10 @@ class World:
                     self.display.redrawCell(oldCell.x, oldCell.y)
                 self.display.redrawCell(a.cell.x, a.cell.y)
 
-        self.score_highway_hit = score_highway_on_fire
-        self.score_fire_enclosed = score_fire_enclosed
+        self.fire = fire
+        self.enclosed = enclosed
 
-        self.display.redraw()
+        self.display.redraw() #AQUI
         self.display.update()
         self.age += 1
 
@@ -669,10 +683,10 @@ class PygameDisplay:
 def makeTitle(world):
     text = 'age: %d' % world.age
     extra = []
-    if world.score_fire_enclosed:
-        extra.append('fire_enclosed=%d' % world.score_fire_enclosed)
-    if world.score_highway_hit:
-        extra.append('highway_on_fire=%d' % world.score_highway_hit)
+    if world.enclosed:
+        extra.append('fire_enclosed=%d' % world.enclosed)
+    if world.fire:
+        extra.append('highway_on_fire=%d' % world.fire)
     if world.display.paused:
         extra.append('paused')
     if world.display.updateEvery != 1:
