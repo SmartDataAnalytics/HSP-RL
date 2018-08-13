@@ -16,7 +16,7 @@ reload(qlearn)
 
 directions = 4
 
-lookdist = 2
+lookdist = 20
 lookcells = []
 
 for i in range(-lookdist, lookdist+1):
@@ -237,7 +237,7 @@ class Firefighter(cellular.Agent):
     def update(self):
         # calculate the state of the surrounding cells
         state = self.calcState()
-        print(state)
+        #print(state)
 
         # highway on fire or fire enclosed
         # -- end of game
@@ -247,7 +247,7 @@ class Firefighter(cellular.Agent):
             if world.is_highway_on_fire:
                 reward = -100
             if world.is_fire_enclosed:
-                reward = 75
+                reward = 100
 
             if self.lastState is not None:
                 self.ai.learn(self.lastState, self.lastAction, reward, state)
@@ -266,7 +266,24 @@ class Firefighter(cellular.Agent):
             return
 
         else:
-            s=''
+            d = flame.get_distance_to_highway()
+            b = flame.tot_burning_cells
+            v = d * b
+            reward = (np.log(abs(v)) * -1) * 10
+            #print(reward)
+            print(self.cell._status)
+
+            if self.cell._status == CELL_HIGHWAY:
+                reward = 200
+            elif self.cell._status == CELL_FREE:
+                reward = 10
+            elif self.cell._status == CELL_PROTECTED:
+                reward = -10
+            #print(reward)
+
+            s = ''
+            '''
+            
             if self.cell._status == CELL_PROTECTED:
                 reward = -50
                 s='protected'
@@ -277,23 +294,23 @@ class Firefighter(cellular.Agent):
                 reward = 25
                 s='burning'
             elif self.cell._status == CELL_FREE:
-                reward = 50
+                
                 s='free'
+            elif self.cell._status == CELL_WALL:
+                s='well'    
             else:
-                d = flame.get_distance_to_highway()
-                b = flame.tot_burning_cells
-                v = d * b
-                reward = np.log(abs(v)) * -1
-                s='function'
+                raise Exception('')
+            '''
 
-            print(':: reward=%s :: external layer=%s :: type=%s' % (reward, len(flame.external_layer_on_fire),s))
+
+            #print(':: reward=%s :: external layer=%s :: type=%s' % (reward, len(flame.external_layer_on_fire),s))
 
             if self.lastState is not None:
                 self.ai.learn(self.lastState, self.lastAction, reward, state)
 
             # Choose a new action and execute it
             state = self.calcState()
-            print(state)
+            #print(state)
             action = self.ai.chooseAction(state)
             self.lastState = state
             self.lastAction = action
@@ -337,8 +354,8 @@ highway_X_Y = _get_highway_meta_coordinates()
 
 world.set_highway_meta_coordinates(highway_X_Y)
 
-world.display.activate(size=50)
-world.display.delay = 1
+world.display.activate(size=10)
+world.display.delay = 0
 world.print_world_status_cells()
 # some initial learning
 while world.age < endAge:
@@ -360,10 +377,10 @@ while world.age < endAge:
 
 print(ff.ai.q)
 
-exit(0)
-
+world.display.delay = 1
 while 1:
-    world.update(flame.tot_burning_cells, flame.highway, ff.fire_enclosed)
-    print(len(ff.ai.q))  # print the amount of state/action, reward elements stored
-    bytes = sys.getsizeof(ff.ai.q)
-    print("Bytes: {:d} ({:d} KB)".format(bytes, bytes / 1024))
+    world.update(flame.tot_highway, flame.tot_enclosed)
+    world.print_world_status_cells()
+    #print(len(ff.ai.q))  # print the amount of state/action, reward elements stored
+    #bytes = sys.getsizeof(ff.ai.q)
+    #print("Bytes: {:d} ({:d} KB)".format(bytes, bytes / 1024))

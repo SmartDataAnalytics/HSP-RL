@@ -162,7 +162,7 @@ class World:
                 cell = self.getCell(w, h)
                 counts[cell._status] = counts.get(cell._status) + 1
         for k, v in counts.items():
-            out += labels.get(k) + ': ' + str(v) + ' '
+            out += ind2labels.get(k) + ': ' + str(v) + ' '
         print(out)
 
     def set_highway_meta_coordinates(self, coordinates):
