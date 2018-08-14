@@ -63,12 +63,13 @@ class Agent:
     def goInDirection(self, dir):
         target = self.cell.neighbour[dir]
         if target._status == CELL_WALL:
-            return False, None, None, None
+            return False, None, None, None, None
         else:
             last_status = copy(target._status)
+            old_status = target._status
             target._status = CELL_PROTECTED
             self.cell = target
-            return True, last_status, target.x, target.y
+            return True, last_status, target.x, target.y, old_status
 
     def goForward(self):
         self.goInDirection(self.dir)
@@ -118,7 +119,6 @@ class Agent:
                     highway_hit = True
                     print('attention! highway_hit!')
                 if n._status == CELL_FREE:
-                    #n.set_burning()
                     n._status = CELL_BURNING
                     updated_external_layer_fire.append(n)
                     tot_bc += 1
@@ -153,8 +153,8 @@ class World:
         self.is_highway_on_fire = False
         self.is_fire_enclosed = False
 
-        self.fire = None
-        self.enclosed = None
+        self.score_fire = None
+        self.score_enclosed = None
 
         self.tot_burning_cells = 0
         self.highway_meta_coordinates = None
@@ -278,8 +278,8 @@ class World:
                     self.display.redrawCell(oldCell.x, oldCell.y)
                 self.display.redrawCell(a.cell.x, a.cell.y)
 
-        self.fire = fire
-        self.enclosed = enclosed
+        self.score_fire = fire
+        self.score_enclosed = enclosed
 
         self.display.redraw() #AQUI
         self.display.update()
@@ -683,10 +683,10 @@ class PygameDisplay:
 def makeTitle(world):
     text = 'age: %d' % world.age
     extra = []
-    if world.enclosed:
-        extra.append('fire_enclosed=%d' % world.enclosed)
-    if world.fire:
-        extra.append('highway_on_fire=%d' % world.fire)
+    if world.score_enclosed:
+        extra.append('fire_enclosed=%d' % world.score_enclosed)
+    if world.score_fire:
+        extra.append('highway_on_fire=%d' % world.score_fire)
     if world.display.paused:
         extra.append('paused')
     if world.display.updateEvery != 1:

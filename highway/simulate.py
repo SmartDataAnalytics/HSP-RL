@@ -18,8 +18,10 @@ reload(qlearn)
 
 directions = 4
 
-lookdist = 20
+lookdist = 2 #2
 lookcells = []
+
+np.random.seed(56776)
 
 for i in range(-lookdist, lookdist+1):
     for j in range(-lookdist, lookdist+1):
@@ -223,6 +225,7 @@ class Flame(cellular.Agent):
 
         if _enclosed:
             self.enclosed += 1
+            world.is_fire_enclosed = True
         if _highway_hit:
             world.is_highway_on_fire = True
             self.fire += 1
@@ -255,6 +258,7 @@ class Firefighter(cellular.Agent):
         self.ai = qlearn.QLearn(actions=range(directions), alpha=0.1, gamma=0.9, epsilon=0.1)
         self.lastState = None
         self.lastAction = None
+        self.prev_cell_status = 0
 
     def update(self):
         # calculate the state of the surrounding cells
@@ -267,9 +271,9 @@ class Firefighter(cellular.Agent):
         if world.is_highway_on_fire or world.is_fire_enclosed:
 
             if world.is_highway_on_fire:
-                reward = -100
+                reward = -400
             if world.is_fire_enclosed:
-                reward = 50
+                reward = 400
 
             if self.lastState is not None:
                 self.ai.learn(self.lastState, self.lastAction, reward, state)
@@ -289,22 +293,42 @@ class Firefighter(cellular.Agent):
             return
 
         else:
-            reward = 100
-
-            xf, yf = flame.get_pos_head_fire()
-            # if it is on the top of the Fire
-            if self.cell.x == xf and self.cell.y == yf:
-                reward += 50
+            if self.prev_cell_status == CELL_PROTECTED:
+                reward = -150 #-250
+                s = 'protected'
+            elif self.prev_cell_status == CELL_HIGHWAY:
+                reward = -25
+                s = 'highway'
+            elif self.prev_cell_status == CELL_BURNING:
+                reward = -100 #-50
+                s = 'burning'
+            elif self.prev_cell_status == CELL_FREE:
+                s = 'free'
+                reward = 200
+            elif self.prev_cell_status == CELL_WALL:
+                s = 'wall'
+                reward = -100
+            elif self.prev_cell_status is None:
+                reward = -1
             else:
-                # compute the distance (hypotenuse) from the FF agent to the head of the Fire
-                a = abs(yf - self.cell.y)
-                b = abs(xf - self.cell.x)
-                d1 = sqrt(a ** 2 + b ** 2)
-                d1 = a
-                d2 = flame.get_distance_to_highway()
+                print(self.prev_cell_status)
+                raise Exception('?')
+                reward = 100
 
-                _reward = int((d1 + d2)) * -1
-                reward += _reward
+                xf, yf = flame.get_pos_head_fire()
+                # if it is on the top of the Fire
+                if self.cell.x == xf and self.cell.y == yf:
+                    reward += 50
+                else:
+                    # compute the distance (hypotenuse) from the FF agent to the head of the Fire
+                    a = abs(yf - self.cell.y)
+                    b = abs(xf - self.cell.x)
+                    d1 = sqrt(a ** 2 + b ** 2)
+                    d1 = a
+                    d2 = flame.get_distance_to_highway()
+
+                    _reward = int((d1 + d2)) * -1
+                    reward += _reward
 
             print(reward)
 
@@ -350,7 +374,8 @@ class Firefighter(cellular.Agent):
             self.lastState = state
             self.lastAction = action
 
-            sucess, last_status, last_cell_x, last_cell_y = self.goInDirection(action)
+            sucess, last_status, last_cell_x, last_cell_y, last_cell_status = self.goInDirection(action)
+            self.prev_cell_status = last_cell_status
             if sucess and last_status == CELL_BURNING:
                 flame.tot_burning_cells -= 1
                 # removes from last layer, in case it is there
@@ -376,6 +401,7 @@ ff = Firefighter()
 world = cellular.World(Cell, directions=directions, filename='../worlds/ff_highway.txt')
 world.age = 0
 
+
 #world.addAgent(flame, cell=pickRandomLocation(-1))
 world.addAgent(flame, cell=world.getCell(30, 140))
 world.addAgent(ff, cell=pickRandomLocation(1))
@@ -384,7 +410,7 @@ epsilonx = (0, 100000)
 epsilony = (0.1, 0)
 epsilonm = (epsilony[1] - epsilony[0]) / (epsilonx[1] - epsilonx[0])
 
-endAge = world.age + 10000
+endAge = world.age + 100000
 
 highway_X_Y = _get_highway_meta_coordinates()
 
@@ -396,7 +422,7 @@ world.print_world_status_cells()
 # some initial learning
 while world.age < endAge:
     #world.display.redraw()
-    world.update()
+    world.update(flame.fire, flame.enclosed)
     world.print_world_status_cells()
 
     '''
