@@ -276,9 +276,9 @@ class Firefighter(cellular.Agent):
         if world.is_highway_on_fire or world.is_fire_enclosed:
 
             if world.is_highway_on_fire:
-                reward = -200  # -400
+                reward = -100  # -400
             if world.is_fire_enclosed:
-                reward = 200  # 400
+                reward = 100  # 400
 
             if self.lastState is not None:
                 self.ai.learn(self.lastState, self.lastAction, reward, state)
@@ -330,20 +330,20 @@ class Firefighter(cellular.Agent):
                 reward -= 1
             '''
             if self.prev_cell_status == CELL_PROTECTED:
-                reward = -150  # -250
+                reward = -5  # -250
                 s = 'protected'
             elif self.prev_cell_status == CELL_HIGHWAY:
-                reward = -25
+                reward = -5
                 s = 'highway'
             elif self.prev_cell_status == CELL_BURNING:
-                reward = -100  # -50
+                reward = -10  # -50
                 s = 'burning'
             elif self.prev_cell_status == CELL_FREE:
                 s = 'free'
-                reward = 200
+                reward = 10
             elif self.prev_cell_status == CELL_WALL:
                 s = 'wall'
-                reward = -100
+                reward = -10
             elif self.prev_cell_status is None:
                 reward = -1
             else:
