@@ -157,6 +157,8 @@ class World:
         self.score_enclosed = None
 
         self.tot_burning_cells = 0
+        self.tot_free_cells = 0
+        self.tot_highway_cells_protected = 0 # TODO: implement this logic
         self.highway_meta_coordinates = None
 
         self.highway_min_x = 999999999
@@ -167,6 +169,16 @@ class World:
         self.reset()
         if filename is not None:
             self.load(filename)
+
+    def set_tot_free_cells(self):
+        tot = 0
+        for w in range(self.width):
+            for h in range(self.height):
+                cell = self.getCell(w, h)
+                if cell._status == CELL_FREE:
+                    tot+=1
+        self.tot_free_cells = tot
+
 
     def print_world_status_cells(self):
         counts = {CELL_FREE: 0, CELL_HIGHWAY: 0, CELL_WALL: 0, CELL_PROTECTED: 0, CELL_BURNING: 0}
