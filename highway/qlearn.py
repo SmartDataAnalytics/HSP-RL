@@ -3,7 +3,7 @@ import random
 
 class QLearn:
     def __init__(self, actions, epsilon=0.1, alpha=0.2, gamma=0.9):
-        self.q = {}
+        self.q = {} # q_table
 
         self.epsilon = epsilon  # exploration constant
         self.alpha = alpha      # discount constant

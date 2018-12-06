@@ -191,6 +191,26 @@ class World:
             out += ind2labels.get(k) + ': ' + str(v) + ' '
         print(out)
 
+    def get_total_burning_cell(self):
+        counts = 0
+        for w in range(self.width):
+            for h in range(self.height):
+                cell = self.getCell(w, h)
+                if cell._status == CELL_BURNING:
+                    counts=counts+1
+
+        return counts
+
+    def get_total_proctect_cell(self):
+        counts = 0
+        for w in range(self.width):
+            for h in range(self.height):
+                cell = self.getCell(w, h)
+                if cell._status == CELL_PROTECTED:
+                    counts = counts + 1
+
+        return counts
+
     def set_highway_meta_coordinates(self, coordinates):
         self.highway_meta_coordinates = coordinates
 
