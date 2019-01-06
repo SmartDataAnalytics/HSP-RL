@@ -2,7 +2,7 @@ import random
 import sys
 
 import highway
-from highway.simulate import *
+from highway.Simulate_JL import *
 from copy import copy, deepcopy
 
 neighbourSynonyms = ('neighbours', 'neighbors', 'neighbour', 'neighbor')
@@ -190,6 +190,15 @@ class World:
         for k, v in counts.items():
             out += ind2labels.get(k) + ': ' + str(v) + ' '
         print(out)
+
+
+    def print_world_status_map(self):
+
+        for h in range(self.height):
+            for w in range(self.width):
+                cell = self.getCell(w, h)
+                print(cell._status,end=" ")
+            print("\n")
 
     def get_total_burning_cell(self):
         counts = 0

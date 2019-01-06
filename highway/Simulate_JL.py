@@ -1,10 +1,10 @@
-import time
+from time import sleep
 import random
 import shelve
 import sys
 import pdb
 from math import sqrt
-
+import pandas as pd
 import numpy as np
 from highway import cellular
 from importlib import reload
@@ -14,8 +14,10 @@ from highway.definitions import *
 reload(cellular)
 # import qlearn_mod_random as qlearn # to use the alternative exploration method
 from highway import sarsa  # to use standard exploration method
-from highway import qlearn_JL  # to use standard exploration method
-reload(sarsa)
+# from highway import qlearn  # to use standard exploration method
+# reload(sarsa)
+from highway import qlearn_JL
+# reload(qlearn)
 reload(qlearn_JL)
 directions = 4
 
@@ -29,7 +31,7 @@ for i in range(-lookdist, lookdist + 1):
     for j in range(-lookdist, lookdist + 1):
         if (abs(i) + abs(j) <= lookdist) and (i != 0 or j != 0):
             lookcells.append((i, j))
-
+print(lookcells)
 
 def getTotalBurningCells():
     b = 0
@@ -271,7 +273,8 @@ class Firefighter(cellular.Agent):
     def __init__(self):
         self.ai = None
         #self.ai = sarsa.SarsaLambdaTable()
-        self.ai = qlearn_JL.QLearningTable()
+        # self.ai = qlearn.QLearn(actions=range(directions))
+        self.ai = qlearn_JL.QLearningTable(actions=range(directions),state={})
         self.lastState = None
         self.lastAction = None
         self.prev_cell_status = 0
@@ -298,7 +301,8 @@ class Firefighter(cellular.Agent):
 
             world.is_highway_on_fire = False
             world.is_fire_enclosed = False
-            self.cell = pickRandomLocation(1)
+            # self.cell = pickRandomLocation(1)
+            self.cell = world.getCell(30, 10)
             # flame.cell = pickRandomLocation(-1)
             flame.cell = world.getCell(30, 140)
             flame.tot_burning_cells = 1
@@ -415,7 +419,7 @@ class Firefighter(cellular.Agent):
                 #compute distance of the agent to the left border
 
 
-            print('-- reward = ', reward)
+            # print('-- reward = ', reward)
 
             #b = flame.tot_burning_cells
             # v = d * b
@@ -449,9 +453,12 @@ class Firefighter(cellular.Agent):
             state = self.calcState()
             # print(state)
             action = self.ai.choose_action(state)
-
+            print('action:', action)
+            print('Qtable:')
+            with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+                print(self.ai.q_table)
             if self.lastState is not None:
-                self.ai.learn(self.lastState, self.lastAction, reward, state, action)
+                self.ai.learn(self.lastState, self.lastAction, reward, state)
 
             # Choose a new action and execute it
 
@@ -488,7 +495,9 @@ world.set_tot_free_cells()
 world.addAgent(flame, cell=world.getCell(30, 140))
 flame.start_x = 30
 flame.start_y = 140
-world.addAgent(ff, cell=pickRandomLocation(1))
+world.addAgent(ff, cell=world.getCell(30, 10))
+
+
 
 epsilonx = (0, 100000)
 epsilony = (0.1, 0)
@@ -506,8 +515,12 @@ world.print_world_status_cells()
 # some initial learning
 while world.age < endAge:
     # world.display.redraw()
+    print("last agent location ", "x:", ff.cell.x, "y:", ff.cell.y)
     world.update(flame.fire, flame.enclosed)
-    world.print_world_status_cells()
+    print("agent location ","x:",ff.cell.x,"y:",ff.cell.y)
+    # world.print_world_status_cells()
+    world.print_world_status_map()
+    sleep(15)
 
     '''
     if world.age % 100 == 0:
@@ -521,7 +534,7 @@ while world.age < endAge:
         # ff.fire_enclosed = 0
     '''
 
-print(ff.ai.q)
+print(ff.ai.q_table)
 
 world.display.delay = 1
 while 1:
