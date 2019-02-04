@@ -180,6 +180,12 @@ class World:
         self.tot_free_cells = tot
 
 
+    def set_fixed_fire_area(self, x_left, x_right, y_left, y_right):
+        for w in range(x_left,x_right):
+            for h in range(y_left, y_right):
+                cell = self.getCell(w, h)
+                cell._status = CELL_BURNING
+
     def print_world_status_cells(self):
         counts = {CELL_FREE: 0, CELL_HIGHWAY: 0, CELL_WALL: 0, CELL_PROTECTED: 0, CELL_BURNING: 0}
         out=''
@@ -326,6 +332,35 @@ class World:
         self.display.update()
         self.age += 1
 
+    def update_agent(self, fire=0, enclosed=0):
+        if hasattr(self.Cell, 'update'):
+            # for j, row in enumerate(self.grid):
+            #     for i, c in enumerate(row):
+            #         self.dictBackup[j][i].update(c.__dict__)
+            #         c.update()
+            #         c.__dict__, self.dictBackup[j][
+            #             i] = self.dictBackup[j][i], c.__dict__
+            # for j, row in enumerate(self.grid):
+            #     for i, c in enumerate(row):
+            #         c.__dict__, self.dictBackup[j][
+            #             i] = self.dictBackup[j][i], c.__dict__
+            for a in self.agents:
+                a.update()
+            self.display.redraw()
+        else:
+            for a in self.agents:
+                oldCell = a.cell
+                a.update()
+                if oldCell != a.cell:
+                    self.display.redrawCell(oldCell.x, oldCell.y)
+                self.display.redrawCell(a.cell.x, a.cell.y)
+
+        self.score_fire = fire
+        self.score_enclosed = enclosed
+
+        self.display.redraw() #AQUI
+        self.display.update()
+        self.age += 1
     def getPointInDirection(self, x, y, dir):
         if self.directions == 8:
             dx, dy = [(0, -1), (1, -1), (

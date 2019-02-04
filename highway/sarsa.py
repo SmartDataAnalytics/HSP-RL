@@ -17,17 +17,17 @@ class Sarsa(object):
             self.q_table = self.q_table.append(
                 pd.Series(
                     [0] * len(self.actions),
-                    index=self.q_table.columns,
-                    name=state,
+                    # index=str(state),
+                    name=str(state),
                 )
             )
 
     def choose_action(self, observation):
-        self.check_state_exist(observation)
+        self.check_state_exist(str(observation))
         # action selection
         if np.random.rand() < self.epsilon:
             # choose best action
-            state_action = self.q_table.loc[observation, :]
+            state_action = self.q_table.loc[str(observation), :]
             # some actions may have the same value, randomly choose on in these actions
             action = np.random.choice(state_action[state_action == np.max(state_action)].index)
         else:
@@ -41,9 +41,9 @@ class Sarsa(object):
 
 # backward eligibility traces
 class SarsaLambdaTable(Sarsa):
-    def __init__(self, actions, learning_rate=0.01, reward_decay=0.9, e_greedy=0.9, trace_decay=0.9):
+    def __init__(self, actions, state, learning_rate=0.01, reward_decay=0.9, e_greedy=0.9, trace_decay=0.9):
         super(SarsaLambdaTable, self).__init__(actions, learning_rate, reward_decay, e_greedy)
-
+        self.state = state
         # backward view, eligibility trace.
         self.lambda_ = trace_decay
         self.eligibility_trace = self.q_table.copy()
@@ -53,8 +53,8 @@ class SarsaLambdaTable(Sarsa):
             # append new state to q table
             to_be_append = pd.Series(
                 [0] * len(self.actions),
-                index=self.q_table.columns,
-                name=state,
+                # index=str(state),
+                name=str(state),
             )
             self.q_table = self.q_table.append(to_be_append)
 
@@ -62,10 +62,10 @@ class SarsaLambdaTable(Sarsa):
             self.eligibility_trace = self.eligibility_trace.append(to_be_append)
 
     def learn(self, s, a, r, s_, a_):
-        self.check_state_exist(s_)
-        q_predict = self.q_table.loc[s, a]
+        self.check_state_exist(str(s_))
+        q_predict = self.q_table.loc[str(s), a]
         if s_ != 'terminal':
-            q_target = r + self.gamma * self.q_table.loc[s_, a_]  # next state is not terminal
+            q_target = r + self.gamma * self.q_table.loc[str(s_), a_]  # next state is not terminal
         else:
             q_target = r  # next state is terminal
         error = q_target - q_predict
@@ -76,8 +76,8 @@ class SarsaLambdaTable(Sarsa):
         # self.eligibility_trace.loc[s, a] += 1
 
         # Method 2:
-        self.eligibility_trace.loc[s, :] *= 0
-        self.eligibility_trace.loc[s, a] = 1
+        self.eligibility_trace.loc[str(s), :] *= 0
+        self.eligibility_trace.loc[str(s), a] = 1
 
         # Q update
         self.q_table += self.lr * error * self.eligibility_trace
