@@ -71,6 +71,17 @@ class Agent:
             self.cell = target
             return True, last_status, target.x, target.y, old_status
 
+    def goInDirection(self, cell, dir):
+        target = cell.neighbour[dir]
+        if target._status == CELL_WALL:
+            return False, None, None, None, None
+        else:
+            last_status = copy(target._status)
+            old_status = target._status
+            target._status = CELL_PROTECTED
+            self.cell = target
+            return True, last_status, target.x, target.y, old_status
+
     def goForward(self):
         self.goInDirection(self.dir)
 
