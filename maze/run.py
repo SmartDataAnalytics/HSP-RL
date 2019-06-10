@@ -11,7 +11,7 @@ View more on my tutorial page: https://morvanzhou.github.io/tutorials/
 
 from maze.mazeTest import Maze
 from maze.qlearn_JL import QLearningTable
-
+from PIL import ImageGrab
 
 def update():
     for episode in range(100):
@@ -43,6 +43,10 @@ def update():
     env.destroy()
 
 if __name__ == "__main__":
+    # im = ImageGrab.grab(bbox=((0, 0, 1920, 1080)))
+    # im.show()
+    # print(im.getbbox())
+
     env = Maze()
     RL = QLearningTable(actions=list(range(env.n_actions)),state={})
 

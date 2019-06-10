@@ -128,7 +128,7 @@ class Agent:
                 #n.check_consistency()
                 if highway_hit is False and n._status == CELL_HIGHWAY:
                     highway_hit = True
-                    print('attention! highway_hit!')
+                    # print('attention! highway_hit!')
                 if n._status == CELL_FREE:
                     n._status = CELL_BURNING
                     updated_external_layer_fire.append(n)

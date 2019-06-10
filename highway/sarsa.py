@@ -49,6 +49,7 @@ class SarsaLambdaTable(Sarsa):
         self.eligibility_trace = self.q_table.copy()
 
     def check_state_exist(self, state):
+        # print("Sarsa_action")
         if state not in self.q_table.index:
             # append new state to q table
             to_be_append = pd.Series(
@@ -62,6 +63,7 @@ class SarsaLambdaTable(Sarsa):
             self.eligibility_trace = self.eligibility_trace.append(to_be_append)
 
     def learn(self, s, a, r, s_, a_):
+        # print("Sarsa_learn")
         self.check_state_exist(str(s_))
         q_predict = self.q_table.loc[str(s), a]
         if s_ != 'terminal':
@@ -76,12 +78,13 @@ class SarsaLambdaTable(Sarsa):
         # self.eligibility_trace.loc[s, a] += 1
 
         # Method 2:
-        self.eligibility_trace.loc[str(s), :] *= 0
-        self.eligibility_trace.loc[str(s), a] = 1
+        # self.eligibility_trace.loc[str(s), :] *= 0
+        # self.eligibility_trace.loc[str(s), a] = 1
 
         # Q update
-        self.q_table += self.lr * error * self.eligibility_trace
+        self.q_table += self.lr * error
+        # self.q_table += self.lr * error * self.eligibility_trace
 
         # decay eligibility trace after update
-        self.eligibility_trace *= self.gamma * self.lambda_
+        # self.eligibility_trace *= self.gamma * self.lambda_
 

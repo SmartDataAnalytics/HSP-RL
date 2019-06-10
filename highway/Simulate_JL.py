@@ -1,5 +1,6 @@
 from time import sleep
 import random
+import os
 import shelve
 import sys
 import pdb
@@ -11,7 +12,8 @@ from highway import cellular
 from importlib import reload
 # import cellular
 from highway.definitions import *
-
+from PIL import ImageGrab
+# from pywin32_system32 import *win32ui
 reload(cellular)
 # import qlearn_mod_random as qlearn # to use the alternative exploration method
 from highway import sarsa  # to use standard exploration method
@@ -36,6 +38,31 @@ for i in range(-lookdist, lookdist + 1):
         if (abs(i) + abs(j) <= lookdist) and (i != 0 or j != 0):
             lookcells.append((i, j))
 print(lookcells)
+
+# def window_capture(filename):
+#     hwnd = 0 # 視窗的編號，0號表示當前活躍視窗
+#     # 根據視窗控制代碼獲取視窗的裝置上下文DC（Divice Context）
+#     hwndDC = win32ui.GetWindowDC(hwnd)
+# # 根據視窗的DC獲取mfcDC
+#     mfcDC = win32ui.CreateDCFromHandle(hwndDC)
+# # mfcDC建立可相容的DC
+#     saveDC = mfcDC.CreateCompatibleDC()
+# # 建立bigmap準備儲存圖片
+#     saveBitMap = win32ui.CreateBitmap()
+# # 獲取監控器資訊
+#     MoniterDev = win32api.EnumDisplayMonitors(None, None)
+#     w = MoniterDev[0][2][2]
+#     h = MoniterDev[0][2][3]
+# # print w,h　　　#圖片大小
+# # 為bitmap開闢空間
+#     saveBitMap.CreateCompatibleBitmap(mfcDC, w, h)
+# # 高度saveDC，將截圖儲存到saveBitmap中
+#     saveDC.SelectObject(saveBitMap)
+# # 擷取從左上角（0，0）長寬為（w，h）的圖片
+#     saveDC.BitBlt((0, 0), (w, h), mfcDC, (0, 0), win32con.SRCCOPY)
+#     saveBitMap.SaveBitmapFile(saveDC, filename)
+
+
 
 def getTotalBurningCells():
     b = 0
@@ -283,7 +310,7 @@ class Firefighter(cellular.Agent):
         #               memory_size=2000,
         #               # output_graph=True
         #               )
-        #self.ai = sarsa.SarsaLambdaTable()
+        # self.ai = sarsa.SarsaLambdaTable()
         # self.ai = qlearn.QLearn(actions=range(directions))
         self.ai = qlearn_JL.QLearningTable(actions=range(directions*2),state={})
         # self.ai = sarsa.SarsaLambdaTable(actions=range(directions*2), state={})
@@ -308,7 +335,12 @@ class Firefighter(cellular.Agent):
         self.head_tail=[]
         self.enclosing = 0
         self.epoch=0
-
+        self.firehit = 0
+        self.maxdelay = 0
+        self.trueEnclose=0
+        self.reward=0
+        self.checkCouunt = 0
+        self.startPoint=None
     def resetState(self):
         self.lastState = None
         self.lastAction = None
@@ -325,19 +357,30 @@ class Firefighter(cellular.Agent):
         self.head_tail=[]
         self.epoch += 1
         self.enclosing=0
-
+        self.firehit = 0
+        self.trueEnclose = 0
+        self.reward = 0
+        self.checkCouunt=0
+        self.startPoint=None
     def update(self):
+
         if not self.head_tail:
             self.head_tail = [self.cell, self.cell]
         # print(self.reachRightFlag)
         if self.reachLeftFlag and self.reachRightFlag and not world.is_highway_on_fire:
-            print("Enclosing time: " + str(self.enclosing - 1))
+            self.trueEnclose=self.enclosing-1
+            # print("Enclosing time: " + str(self.enclosing - 1))
+        # elif world.is_highway_on_fire:
+        #     self.firehit += 1
         else:
             self.enclosing += 1
-
+            self.firehit += 1
+            # print("enclosing"+str(self.enclosing))
 
         # print("current budget" , self.budget_now)
         while (self.budget_now >= 1):
+            self.checkCouunt+=1
+            # print(self.checkCouunt)
             # print("current budget", self.budget_now)
             self.budget_now = self.budget_now-1
             # calculate the state of the surrounding cells
@@ -355,11 +398,38 @@ class Firefighter(cellular.Agent):
                 #if world.is_highway_on_fire or world.is_fire_enclosed:
 
                 if world.is_highway_on_fire:
-                    reward = -500 # -400
+                    reward -= 500 # -400
+                    # print(reward)
+                    if self.firehit>self.maxdelay:
+                        self.maxdelay = self.firehit
+                        #screen shot result
+
+                        im = ImageGrab.grab()
+                        # time.sleep(6)
+
+                        try:
+                            imgFile = os.path.join(r'C:\Windows\Temp\WS_Template_Images',
+                                                   'D:\\best\\Best' + str(self.maxdelay) +'_Budeget'+ str(self.budget)+'_x'+ str(self.startPoint.x)+'_y'+ str(self.startPoint.y) + '.jpg')
+                            im.save(imgFile)
+
+                        except AttributeError:
+                            print("Couldn't save image {}".format(im))
+
                 if world.is_fire_enclosed:
-                    reward = 500  # 400
+                    reward += 500  # 400
                     print("Success age: " + str(self.epoch))
-                    time.sleep(60)
+                    print("Enclosing time:"+str(self.trueEnclose))
+                    print("Enclosing time:" + str(self.enclosing-1))
+                    im = ImageGrab.grab()
+                    # print(reward)
+                    # time.sleep(6)
+                    try:
+                        imgFile = os.path.join(r'C:\Windows\Temp\WS_Template_Images', 'D:\\result\\result' + 'Success age_' + str(self.epoch)+'Enclosing time_'+str(self.enclosing-1)+'_Budeget'+ str(self.budget) +'_x'+ str(self.startPoint.x)+'_y'+ str(self.startPoint.y)+'.jpg')
+                        im.save(imgFile)
+                    except AttributeError:
+                        print("Couldn't save image {}".format(im))
+
+                    # time.sleep(60)
 
                 if self.lastState is not None:
                     self.ai.learn(self.lastState, self.lastAction, reward, 'terminal')
@@ -374,11 +444,15 @@ class Firefighter(cellular.Agent):
                 world.is_highway_on_fire = False
                 world.is_fire_enclosed = False
                 self.resetState()
-                #self.cell = pickRandomLocation(1)
-                self.cell = world.getCell(30, 40)
-                self.cell._status = CELL_PROTECTED
+                # self.cell = pickRandomLocation(1)
+                # self.cell = world.getCell(35,25)
+                self.cell = world.getCell(15, 2)
+                # self.startPoint=self.cell
+                self.startPoint = self.cell
+                # self.cell._status = CELL_PROTECTED
                 # flame.cell = pickRandomLocation(-1)
-                flame.cell = world.getCell(30, 64)
+                # flame.cell = world.getCell(35, 50)
+                flame.cell = world.getCell(15, 20)
                 flame.tot_burning_cells = 1
                 flame.external_layer_on_fire = []
 
@@ -388,7 +462,8 @@ class Firefighter(cellular.Agent):
                 return
 
             else:
-                world.getCell(30, 40)._status=CELL_PROTECTED
+                world.getCell(15, 2)._status=CELL_PROTECTED
+                # self.startPoint._status = CELL_PROTECTED
                 '''
                 normalized_burning = \
                     (world.tot_burning_cells - min([0])) / (max([0, world.tot_free_cells]) - min([0]))
@@ -557,7 +632,7 @@ class Firefighter(cellular.Agent):
                 '''
 
                 # print(':: reward=%s :: external layer=%s :: type=%s' % (reward, len(flame.external_layer_on_fire),s))
-                state = self.calcState_old()
+                state = self.calcState()
                 # print(state)
                 action = self.ai.choose_action(state)
                 # print('action:', action)
@@ -567,7 +642,7 @@ class Firefighter(cellular.Agent):
                 if self.lastState is not None:
                     self.ai.learn(self.lastState, self.lastAction, reward, state)
 
-                    # self.ai.learn(self.lastState, self.lastAction, reward, state, action)
+                    # self.ai.learn(self.lastState, self.lastAction, reward, state, action) #sarsa
 
                     # self.ai.store_transition(self.lastState, self.lastAction, reward, state)
                     #
@@ -602,6 +677,7 @@ class Firefighter(cellular.Agent):
 
                 # sucess, last_status, last_cell_x, last_cell_y, last_cell_status = self.goInDirection(action)
                 sucess, last_status, last_cell_x, last_cell_y, last_cell_status = self.goInDirection(target_cell,godir)
+
                 self.head_tail[tci]=self.cell # update
 
                 self.prev_cell_status = last_cell_status
@@ -645,51 +721,59 @@ class Firefighter(cellular.Agent):
 
         return t
 
+budgets = [1.8]
+
+for b in budgets:
+    print('budget='+str(b))
+    flame = Flame()
+    ff = Firefighter(budget=b)
+    world = cellular.World(Cell, directions=directions, filename='../worlds/ff_highway1w1h.txt')
+    world.age = 0
+    world.set_tot_free_cells()
+
+    # world.addAgent(flame, cell=pickRandomLocation(-1))
+    # world.addAgent(flame, cell=world.getCell(35, 50))
+    world.addAgent(flame, cell=world.getCell(15, 20))
+    flame.start_x = 30
+    flame.start_y = 140
+    # world.addAgent(ff, cell=world.getCell(35, 25))
+    world.addAgent(ff, cell=world.getCell(15, 2))
+    # world.addAgent(ff, cell=pickRandomLocation(-1))
+    ff.startPoint=ff.cell
+    ff.cell._status=CELL_PROTECTED
 
 
-flame = Flame()
-ff = Firefighter(budget=1.6)
 
-world = cellular.World(Cell, directions=directions, filename='../worlds/ff_highway.txt')
-world.age = 0
-world.set_tot_free_cells()
+    epsilonx = (0, 100000)
+    epsilony = (0.1, 0)
+    epsilonm = (epsilony[1] - epsilony[0]) / (epsilonx[1] - epsilonx[0])
 
-# world.addAgent(flame, cell=pickRandomLocation(-1))
-world.addAgent(flame, cell=world.getCell(30, 64))
-flame.start_x = 30
-flame.start_y = 140
-world.addAgent(ff, cell=world.getCell(30, 40))
-ff.cell._status=CELL_PROTECTED
+    # endAge = world.age + 100000
+    endAge = world.age + 100000
 
+    highway_X_Y = _get_highway_meta_coordinates()
 
+    world.set_highway_meta_coordinates(highway_X_Y)
 
-epsilonx = (0, 100000)
-epsilony = (0.1, 0)
-epsilonm = (epsilony[1] - epsilony[0]) / (epsilonx[1] - epsilonx[0])
+    world.display.activate(size=15)
+    world.display.delay = 0
+    world.print_world_status_cells()
 
-endAge = world.age + 100000
-
-highway_X_Y = _get_highway_meta_coordinates()
-
-world.set_highway_meta_coordinates(highway_X_Y)
-
-world.display.activate(size=15)
-world.display.delay = 0
-world.print_world_status_cells()
-
-#test case for fixed area
-#world.set_fixed_fire_area(15,45,55,85)
+    #test case for fixed area
+    #world.set_fixed_fire_area(15,45,55,85)
 
 
-# some initial learning
-while world.age < endAge:
-    # world.display.redraw()
-    #print("last agent location ", "x:", ff.cell.x, "y:", ff.cell.y)
-    world.update(flame.fire, flame.enclosed)
-    #print("agent location ","x:",ff.cell.x,"y:",ff.cell.y)
-    # world.print_world_status_cells()
-    #world.print_world_status_map()
-    #sleep(15)
+    # some initial learning
+    world.display.delay = 10
+    # world.display.delay = 1
+    while world.age < endAge:
+        # world.display.redraw()
+        #print("last agent location ", "x:", ff.cell.x, "y:", ff.cell.y)
+        world.update(flame.fire, flame.enclosed)
+        #print("agent location ","x:",ff.cell.x,"y:",ff.cell.y)
+        # world.print_world_status_cells()
+        #world.print_world_status_map()
+        #sleep(15)
 
     '''
     if world.age % 100 == 0:
@@ -705,12 +789,12 @@ while world.age < endAge:
 
 #print(ff.ai.q_table)
 
-world.display.delay = 1
-while 1:
-    world.update(flame.fire, flame.enclosed)
-    world.print_world_status_cells()
-    # print(len(ff.ai.q))  # print the amount of state/action, reward elements stored
-    # bytes = sys.getsizeof(ff.ai.q)
-    # print("Bytes: {:d} ({:d} KB)".format(bytes, bytes / 1024))
+# world.display.delay = 1
+# while 1:
+#     world.update(flame.fire, flame.enclosed)
+#     world.print_world_status_cells()
+#     # print(len(ff.ai.q))  # print the amount of state/action, reward elements stored
+#     # bytes = sys.getsizeof(ff.ai.q)
+#     # print("Bytes: {:d} ({:d} KB)".format(bytes, bytes / 1024))
 
 #TODO enclosing game, budget ,lesson design, delay episod
